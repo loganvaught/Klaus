@@ -57,6 +57,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define HAPTIC_SCL_Pin GPIO_PIN_6
+#define HAPTIC_SCL_GPIO_Port GPIOB
+#define HAPTIC_SDA_Pin GPIO_PIN_7
+#define HAPTIC_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
