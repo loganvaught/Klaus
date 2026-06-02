@@ -34,6 +34,8 @@
 /* USER CODE BEGIN PD */
 #define HAPTIC_DEV_ADDR 0x5A
 #define HAPTIC_MODE_REG 0x01
+#define TEMPO_MAX 208
+#define TEMPO_MIN 30
 
 /* USER CODE END PD */
 
@@ -44,8 +46,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-
-TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart1;
 
@@ -58,7 +58,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -203,14 +202,27 @@ void haptic_play(uint8_t num) {
 	}
 }
 
-// Rotary encoder timer for metronome BPM changing
-  uint8_t encoder_change = 0;
-  void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	  if (htim->Instance == TIM2) {
-		  printf("CHANGE\r\n");
-		  encoder_change = 1;
-	  }
-  }
+uint8_t encoder_last_state = 0;
+uint8_t encoder_state = 0;
+uint8_t encoder_change = 2;
+
+// Going Clockwise: 00, 10, 11, 01, 00 -- 0, 2, 3, 1, 0
+// If encoder_clockwise_dict[last_state] == new state, you go clockwise.
+uint8_t encoder_clockwise_dict[4] = {
+		2, 0, 3, 1
+};
+// If encoder_counterclockwise_dict[last_state] == new state, you go counterclockwise.
+uint8_t encoder_counterclockwise_dict[4] = {
+		1, 3, 0, 2
+};
+// If the new value is in neither, it is just noise
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == ENCODER_A_Pin || GPIO_Pin == ENCODER_B_Pin) {
+		// Encoder A pin
+		encoder_change = 1;
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -245,7 +257,6 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
-  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
   printf("Working!\r\n");
@@ -258,22 +269,70 @@ int main(void)
 	  haptic_play(i);
   }*/
 
-  // Rotary encoder timer for metronome BPM changing
-  HAL_TIM_Encoder_Start_IT(&htim2, TIM_CHANNEL_ALL);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
+  int16_t tempo = 60;
 
   while (1)
   {
+	  if (encoder_change == 2) { // First time initializing encoder variables
+		  encoder_change = 0;
+		  encoder_state = (HAL_GPIO_ReadPin(ENCODER_A_GPIO_Port, ENCODER_A_Pin) << 1) | HAL_GPIO_ReadPin(ENCODER_B_GPIO_Port, ENCODER_B_Pin);
+		  encoder_last_state = encoder_state;
+	  }
+
 	  if (encoder_change) {
 		  // Rotary encoder twisted
-		  uint16_t timer_on = htim2.Instance->CNT;
-		  printf("Rotary encoder: %u\r\n", timer_on);
+		  encoder_state = (HAL_GPIO_ReadPin(ENCODER_A_GPIO_Port, ENCODER_A_Pin) << 1) | HAL_GPIO_ReadPin(ENCODER_B_GPIO_Port, ENCODER_B_Pin);
+		  int8_t change = 0;
+		  if (encoder_clockwise_dict[encoder_last_state] == encoder_state) {
+			  // Go clockwise
+			  change = 1;
+		  }
+		  else if (encoder_counterclockwise_dict[encoder_last_state] == encoder_state) {
+			  // Go counterclockwise
+			  change = -1;
+		  }
+		  else {
+			  // Noise, ignore
+		  }
+
+		  if (encoder_state == 0) { // The encoder is detented, so this checks for a complete twist.
+			  uint16_t new_tempo = tempo + change;
+
+			  // Make sure tempo in range
+			  // And, multiply change to make twisting knob faster for higher tempos
+
+			  if (new_tempo >= 30 && new_tempo < 60) {
+				  new_tempo += 1 * change;
+				  tempo = new_tempo;
+			  }
+			  else if (new_tempo >= 60 && new_tempo < 72) {
+				  new_tempo += 2 * change;
+				  tempo = new_tempo;
+			  }
+			  else if (new_tempo >= 72 && new_tempo < 120) {
+				  new_tempo += 3 * change;
+				  tempo = new_tempo;
+			  }
+			  else if (new_tempo >= 120 && new_tempo < 144) {
+				  new_tempo += 5 * change;
+				  tempo = new_tempo;
+			  }
+			  else if (new_tempo >= 144 && new_tempo < 208) {
+				  new_tempo += 7 * change;
+				  tempo = new_tempo;
+			  }
+
+			  printf("New tempo: %d\r\n", tempo);
+		  }
+
+		  encoder_last_state = encoder_state;
 		  encoder_change = 0;
+
 	  }
 
     /* USER CODE END WHILE */
@@ -359,55 +418,6 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_Encoder_InitTypeDef sConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
-  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
-  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
-  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
-  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
-  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
-  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
-  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -447,6 +457,7 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
@@ -454,6 +465,19 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pins : ENCODER_B_Pin ENCODER_A_Pin */
+  GPIO_InitStruct.Pin = ENCODER_B_Pin|ENCODER_A_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
