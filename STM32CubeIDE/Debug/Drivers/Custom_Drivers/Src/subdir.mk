@@ -5,23 +5,23 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-D:/MyDocuments/stm32projects/Klaus/Core/Src/system_stm32f4xx.c 
+../Drivers/Custom_Drivers/Src/drv2605l.c 
 
 OBJS += \
-./Drivers/CMSIS/system_stm32f4xx.o 
+./Drivers/Custom_Drivers/Src/drv2605l.o 
 
 C_DEPS += \
-./Drivers/CMSIS/system_stm32f4xx.d 
+./Drivers/Custom_Drivers/Src/drv2605l.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-Drivers/CMSIS/system_stm32f4xx.o: D:/MyDocuments/stm32projects/Klaus/Core/Src/system_stm32f4xx.c Drivers/CMSIS/subdir.mk
+Drivers/Custom_Drivers/Src/%.o Drivers/Custom_Drivers/Src/%.su Drivers/Custom_Drivers/Src/%.cyclo: ../Drivers/Custom_Drivers/Src/%.c Drivers/Custom_Drivers/Src/subdir.mk
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F411xE -c -I../../Core/Inc -I../../Drivers/STM32F4xx_HAL_Driver/Inc -I../../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../../Drivers/CMSIS/Include -I"D:/MyDocuments/stm32projects/Klaus/STM32CubeIDE/Drivers/Custom_Drivers/Inc" -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
 
-clean: clean-Drivers-2f-CMSIS
+clean: clean-Drivers-2f-Custom_Drivers-2f-Src
 
-clean-Drivers-2f-CMSIS:
-	-$(RM) ./Drivers/CMSIS/system_stm32f4xx.cyclo ./Drivers/CMSIS/system_stm32f4xx.d ./Drivers/CMSIS/system_stm32f4xx.o ./Drivers/CMSIS/system_stm32f4xx.su
+clean-Drivers-2f-Custom_Drivers-2f-Src:
+	-$(RM) ./Drivers/Custom_Drivers/Src/drv2605l.cyclo ./Drivers/Custom_Drivers/Src/drv2605l.d ./Drivers/Custom_Drivers/Src/drv2605l.o ./Drivers/Custom_Drivers/Src/drv2605l.su
 
-.PHONY: clean-Drivers-2f-CMSIS
+.PHONY: clean-Drivers-2f-Custom_Drivers-2f-Src
 

@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include "drv2605l.h"
 
 /* USER CODE END Includes */
 
@@ -32,10 +33,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define HAPTIC_DEV_ADDR 0x5A
-#define HAPTIC_MODE_REG 0x01
-#define TEMPO_MAX 208
-#define TEMPO_MIN 30
 
 /* USER CODE END PD */
 
@@ -80,133 +77,6 @@ int _write(int fd, char* ptr, int len) {
 		return -1;
 	}
 	return -1;
-}
-
-void haptic_write_byte(uint8_t mAddr, uint8_t data) {
-	if (HAL_I2C_Mem_Write(&hi2c1, HAPTIC_DEV_ADDR << 1, mAddr, 1, &data, 1, HAL_MAX_DELAY) != HAL_OK) {
-		printf("Haptic write failed.\r\n");
-		Error_Handler();
-	}
-}
-
-uint8_t haptic_read_byte(uint8_t mAddr) {
-	uint8_t data = 0;
-	if (HAL_I2C_Mem_Read(&hi2c1, HAPTIC_DEV_ADDR << 1, mAddr, 1, &data, 1, HAL_MAX_DELAY) != HAL_OK) {
-		printf("Haptic read failed.\r\n");
-		Error_Handler();
-	}
-	return data;
-}
-
-// Helper function to set up the bits required for the auto-callibration process. Addresses and values from datasheet and formulas in datasheet
-void haptic_autoconfig() {
-	// ERM_LRA[0] - 0x1A[7]. SET TO 1 FOR LRA
-	uint8_t data = haptic_read_byte(0x1A);
-	data = data | 0x80;
-	haptic_write_byte(0x1A, data);
-
-	// FB_BRAKE_FACTOR[2:0] - 0x1A[6:4].
-	// LOOP_GAIN[1:0] - 0x1A[3:2]
-	// RATED_VOLTAGE[7:0] - 0x16[7:0]. SET TO 0x56 FOR 2.0VRms (See formula on DRV datasheet)
-	haptic_write_byte(0x16, 0x56);
-
-	// OD_CLAMP[7:0] - 0x17[7:0]. SET TO 0x84 FOR 2.8V clamp. (See formula on DRV datasheet)
-	haptic_write_byte(0x17, 0x84);
-
-	// AUTO_CAL_TIME[1:0] - 0x1E[5:4]
-	// DRIVE_TIME[4:0] - 0x1B[4:0]. SET TO 0x1C FOR 150Hz
-	data = haptic_read_byte(0x1B);
-	data = data & 0xE0; // Remove 5 least significant bits
-	data = data | 0x1C;
-	haptic_write_byte(0x1B, data);
-
-	// SAMPLE_TIME[1:0] - 0x1C[5:4]
-	// BLANKING_TIME[3:2] - 0x1F[3:2]
-	// BLANKING_TIME[1:0] - 0x1C[3:2]
-	// IDISS_TIME[3:2] - 0x1F[1:0]
-	// IDISS_TIME[1:0] - 0x1C[1:0]
-	// ZC_DET_TIME[1:0] - 0x1E[7:6]
-}
-
-void haptic_callibrate() {
-	// Set configuration mode, remove from standby
-	haptic_write_byte(0x01, 0x07);
-
-	// Set values for my specific LRA: ELV1411A
-	haptic_autoconfig();
-
-	// Begin Auto-Callibration. Set GO bit
-	haptic_write_byte(0x0C, 0x01);
-
-	// Poll the go-bit to detect when callibration is completed
-	uint8_t finished = 0;
-	uint8_t checks = 0;
-	uint8_t max_checks = 10;
-	while (finished == 0 && checks < max_checks){
-		HAL_Delay(100);
-		if (haptic_read_byte(0x0C) == 0x00) finished = 1;
-		checks ++;
-	}
-
-	printf("Checks completed\r\n");
-
-	if (checks >= max_checks) printf("Auto-callibration time exhausted.\r\n");
-	uint8_t result = (haptic_read_byte(0x00) & 0x08 );
-	// Check whether or not the DIAG_RESULT bit shows successful completion
-	if (result == 1) printf("Auto-callibration failed.\r\n");
-}
-
-// Initialize the DRV2065L as specified in the datasheet
-void haptic_init() {
-	// Wait for DRV2065L to be ready
-	HAL_Delay(500);
-
-	// Calibrate
-	haptic_callibrate();
-
-	// Remove calibration mode.
-	haptic_write_byte(HAPTIC_MODE_REG, 0x00);
-
-	// Library selection. LRA = Library No. 6
-	uint8_t data = haptic_read_byte(0x03);
-	uint8_t mask = 0xF8; // Mask to remove the 3 least significant bits
-	data = data & mask;
-	data = data | 0x06;
-	haptic_write_byte(0x03, data);
-
-	// Set up for vibration
-	data = haptic_read_byte(0x01);
-	mask = 0xF8; // Mask to remove the 3 least significant bits
-	data = data & mask;
-	data = data | 0x00; // Select "Internal Trigger"
-	haptic_write_byte(0x01, data);
-}
-
-// Plays the numth waveform in the LRA library. Accepts a number from 1 to 123
-void haptic_play(uint8_t num) {
-	if (num < 1 || num > 123) {
-		printf("Invalid waveform identifier. Skipping: %u\r\n", num);
-		return;
-	}
-
-	// Check if go bit is 0
-	if (haptic_read_byte(0x0C) != 0) return;
-
-	haptic_write_byte(0x04, num);
-
-	// Set GO bit
-	haptic_write_byte(0x0C, 0x01);
-
-	/* Poll the go-bit to detect when vibration is completed
-	uint8_t finished = 0;
-	uint8_t checks = 0;
-	uint8_t max_checks = 100;
-	while (finished == 0 && checks < max_checks){
-		HAL_Delay(100);
-		if (haptic_read_byte(0x0C) == 0x00) finished = 1;
-		checks ++;
-	}
-	*/
 }
 
 uint8_t encoder_last_state = 0;
@@ -278,7 +148,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   printf("Working!\r\n");
-  haptic_init();
+  haptic_init(&hi2c1);
 
   // Start timer for generating metronome beats
   HAL_TIM_Base_Start_IT(&htim2);
@@ -365,7 +235,8 @@ int main(void)
 
 	  if (metronome_beat) {
 		  // Play vibration waveform for beat
-		  haptic_play(1);
+		  printf("Pulse\r\n");
+		  haptic_play(4);
 		  metronome_beat = 0;
 	  }
 
