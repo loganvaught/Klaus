@@ -1,6 +1,16 @@
 # Klaus
 Personal vibration-based metronome project to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
 
+# Purpose / Background Info
+I designed Klaus for my string quartet. We had trouble navigating a difficult piece because the metronome was too quiet. I initially designed an LED metronome (claw shaped - hence the name, Klaus), which failed to help. By using vibrations, Klaus has solved our problem, and I hope that it can be used to help other ensembles.
+
+# Features
+- LRA generates strong click sensations
+- Adjustable tempo via rotary encoder
+- Wireless syncing with multiple devices (nrf24l01)
+- Battery powered, charging
+- Expandable for various ensemble sizes
+
 # Parts
 - STM32F411CEU6 Blackpill Board
 - 18650 Battery
@@ -8,7 +18,7 @@ Personal vibration-based metronome project to help musicians stay in sync. Built
 - 5V Boost Converter
 - DRV2605L Haptic Breakout Board
 - ELV1411A LRA
-- nRF24L01 + PA + LNA
+- nRF24L01 + PA + LNA Board
 
 # Peripherals / Functionality
 - I2C - communication with DRV2605L
