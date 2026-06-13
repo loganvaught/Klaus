@@ -148,7 +148,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   printf("Working!\r\n");
-  haptic_init(&hi2c1);
+
+  drv2605l_handle_t haptic_driver;
+  drv2605l_init(&haptic_driver, &hi2c1);
 
   // Start timer for generating metronome beats
   HAL_TIM_Base_Start_IT(&htim2);
@@ -157,7 +159,7 @@ int main(void)
   for (uint8_t i = 1; i < 124; i ++) {
 	  HAL_Delay(250);
 	  printf("Playing: %u\r\n",i);
-	  haptic_play(i);
+	  drv2605l_play(i);
   }*/
 
   /* USER CODE END 2 */
@@ -236,7 +238,7 @@ int main(void)
 	  if (metronome_beat) {
 		  // Play vibration waveform for beat
 		  printf("Pulse\r\n");
-		  haptic_play(4);
+		  drv2605l_play(&haptic_driver, 4);
 		  metronome_beat = 0;
 	  }
 

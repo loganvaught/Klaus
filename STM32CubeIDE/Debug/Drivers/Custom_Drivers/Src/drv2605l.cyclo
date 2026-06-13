@@ -1,6 +1,6 @@
-../Drivers/Custom_Drivers/Src/drv2605l.c:18:9:haptic_write_byte	3
-../Drivers/Custom_Drivers/Src/drv2605l.c:32:9:haptic_read_byte	3
-../Drivers/Custom_Drivers/Src/drv2605l.c:44:6:haptic_autoconfig	1
-../Drivers/Custom_Drivers/Src/drv2605l.c:79:9:haptic_calibrate	6
-../Drivers/Custom_Drivers/Src/drv2605l.c:121:6:haptic_init	1
-../Drivers/Custom_Drivers/Src/drv2605l.c:156:9:haptic_play	4
+../Drivers/Custom_Drivers/Src/drv2605l.c:17:19:drv2605l_write_byte	2
+../Drivers/Custom_Drivers/Src/drv2605l.c:31:19:drv2605l_read_byte	2
+../Drivers/Custom_Drivers/Src/drv2605l.c:43:19:drv2605l_autoconfig	7
+../Drivers/Custom_Drivers/Src/drv2605l.c:93:19:drv2605l_calibrate	13
+../Drivers/Custom_Drivers/Src/drv2605l.c:150:19:drv2605l_init	8
+../Drivers/Custom_Drivers/Src/drv2605l.c:203:19:drv2605l_play	7

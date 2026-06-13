@@ -13,6 +13,16 @@
 // Device address
 #define HAPTIC_DEV_ADDR 0x5A
 
+// Handlers
+typedef struct {
+	I2C_HandleTypeDef *i2c;
+} drv2605l_handle_t;
+
+typedef enum {
+	DRV2605L_OK,
+	DRV2605L_Error
+} drv2605l_result_t;
+
 // Register addresses
 #define MODE 0x01
 #define FEEDBACK_CONTROL 0x1A
@@ -44,12 +54,12 @@
 #define TEMPO_MIN 30
 
 // Functions
-uint8_t haptic_write_byte(uint8_t mAddr, uint8_t data);
-uint8_t haptic_read_byte(uint8_t mAddr, uint8_t *data);
-void haptic_autoconfig(void);
-uint8_t haptic_calibrate(void);
-void haptic_init(I2C_HandleTypeDef *hi2c);
-uint8_t haptic_play(uint8_t num);
+drv2605l_result_t drv2605l_write_byte(drv2605l_handle_t *device, uint8_t mAddr, uint8_t data);
+drv2605l_result_t drv2605l_read_byte(drv2605l_handle_t *device, uint8_t mAddr, uint8_t *data);
+drv2605l_result_t drv2605l_autoconfig(drv2605l_handle_t *device);
+drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device);
+drv2605l_result_t drv2605l_init(drv2605l_handle_t *device, I2C_HandleTypeDef *i2c);
+drv2605l_result_t drv2605l_play(drv2605l_handle_t *device, uint8_t num);
 
 
 
