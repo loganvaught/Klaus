@@ -10,7 +10,7 @@
 
 #include "main.h"
 
-// Device address
+// Device address (NOT already shifted for I2C 7-bit addressing)
 #define HAPTIC_DEV_ADDR 0x5A
 
 // Handlers

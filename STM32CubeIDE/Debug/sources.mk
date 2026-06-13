@@ -25,6 +25,6 @@ SUBDIRS := \
 Application/User/Core \
 Application/User/Startup \
 Drivers/CMSIS \
-Drivers/Custom_Drivers/Src \
+Drivers/Custom/Src \
 Drivers/STM32F4xx_HAL_Driver \
 
