@@ -1,6 +1,0 @@
-../Drivers/Custom/Src/drv2605l.c:17:19:drv2605l_write_byte	2
-../Drivers/Custom/Src/drv2605l.c:31:19:drv2605l_read_byte	2
-../Drivers/Custom/Src/drv2605l.c:43:19:drv2605l_autoconfig	7
-../Drivers/Custom/Src/drv2605l.c:93:19:drv2605l_calibrate	13
-../Drivers/Custom/Src/drv2605l.c:150:19:drv2605l_init	8
-../Drivers/Custom/Src/drv2605l.c:203:19:drv2605l_play	7
