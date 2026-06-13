@@ -32,7 +32,7 @@ I designed Klaus for my string quartet. We had trouble navigating a difficult pi
 - nRF24L01 + PA + LNA - Overkill for small ensemble settings, but enhances reliability in larger setups
 
 # System Overview / Diagram
-- Block diagram to be added
+![System Block Diagram](docs/block_diagram.png)
 
 # Driver Information
 DRV2605L Driver
