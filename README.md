@@ -41,6 +41,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 DRV2605L Driver
 - Initialization handle and configures DRV2605L
 - Calibrates driver for ELV1411A, runs with DRV2605L waveforms
+
 nRF24L01+ Driver
 - Initializes NRF24L01 handle and configures device for transceiving
 - Functions for entering TX and RX mode
