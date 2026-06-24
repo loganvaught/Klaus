@@ -209,13 +209,13 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 
 	// Set PRIM_RX = 0
 	config_reg &= ~(NRF24L01_PRIM_RX_MASK);
+
 	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
 
 	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
-
 	// Clear the FIFO
 	result = nrf24l01_flush_tx(device);
 	if (result != NRF24L01_OK) {
@@ -335,7 +335,13 @@ nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
 			device->rx_callback(data, 32);
 		}
 	}
-	// TX_DS does not need to be checked for this driver.
+	// TX_DS
+	if (status & NRF24L01_TX_DS) {
+		// use handle callback
+		if (device->tx_callback) {
+			device->tx_callback();
+		}
+	}
 	// In future: MAX_RT will need to be checked if auto-ack is enabled. This driver does not use auto-ack
 
 	// Clear interrupts
@@ -350,7 +356,8 @@ nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
 /**
   * @brief 	Initializes an NRF24L01 to be operated on via a given nrf24l01_handle_t. Automatically sets up
   * 		the given handle, and configures the NRF24L01 over SPI for useage. Does not enter RX or TX mode.
-  * 		Does not use Auto-Ack, or Auto-Retransmit. Only uses one pipe (Pipe 0) for RX.
+  * 		Does not use Auto-Ack, or Auto-Retransmit. Only uses one pipe (Pipe 0) for RX. Consider setting
+  * 		the callback definitions in the nrf24l01_handle_t after a call to this function.
   * @param  device The nrf24l01_handle to operate on. Expected to be uninitialized
   * @param	spi The address to the SPI handle to use for the NRF24L01
   * @param	micro_timer The micro_delay_handle_t to use for microsecond precision delay.
@@ -377,6 +384,7 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	device->micro_timer = micro_timer;
 	device->mode = NRF24L01_Unknown;
 	device->rx_callback = NULL;
+	device->tx_callback = NULL;
 
 	// Configure registers for basic usage (Disable auto ack, no retransmits, pipes, addresses)
 	nrf24l01_result_t result;
@@ -476,4 +484,13 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 
 	return NRF24L01_OK;
 }
+// Personal debugging. To be removed later
+void nrf24l01_print_last_status(nrf24l01_handle_t *device) {
+	printf("%02X\r\n", device->last_status);
+}
+void nrf24l01_print_config(nrf24l01_handle_t *device) {
+	uint8_t config_reg;
+	nrf24l01_read(device, NRF24L01_CONFIG, &config_reg, 1);
+	printf("%02X\r\n", config_reg);
 
+}

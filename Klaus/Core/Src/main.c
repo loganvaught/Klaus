@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "drv2605l.h"
+#include "nrf24l01.h"
 
 /* USER CODE END Includes */
 
@@ -109,9 +110,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	else if (GPIO_Pin == NRF_IRQ_Pin) {
 		// NRF Interrupt pin
 		// Active low.
-
+		// Set flag to handle the IRQ
 		nrf_change = 1;
-
 		// Automatically set back to high when status register IRQs are cleared
 	}
 }
@@ -124,6 +124,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		// Timer 2 reset
 		metronome_beat = 1;
 	}
+}
+
+// Callbacks for NRF24L01
+void rx_callback(uint8_t *data, uint16_t length) {
+	printf("RX (%u bytes): ", length);
+	for (int i = 0; i < length; i++) {
+		printf("%02X ", data[i]);
+	}
+	printf("\r\n");
+}
+void tx_callback() {
+  printf("Data sent over air successfully!\r\n");
 }
 
 /* USER CODE END 0 */
@@ -164,7 +176,9 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
-  printf("Working!\r\n");
+  printf("\r\nWorking!\r\n");
+
+  // -------------- DRV2605L -------------- //
 
   drv2605l_handle_t haptic_driver;
   drv2605l_init(&haptic_driver, &hi2c1);
@@ -178,6 +192,49 @@ int main(void)
 	  printf("Playing: %u\r\n",i);
 	  drv2605l_play(i);
   }*/
+
+  // -------------- NRF24L01+ -------------- //
+
+  nrf24l01_handle_t rf_handle;
+  micro_delay_handle_t micro_timer;
+  HAL_TIM_Base_Start(&htim3);
+  micro_delay_init(&micro_timer, &htim3);
+  uint8_t channel = 1;
+  nrf24l01_datarate_t data_rate = NRF24L01_DR_1MBPS;
+  nrf24l01_power_t power = NRF24L01_PWR_NEG18DBM;
+  uint8_t pipe_address[5] = {0x4E,0x4E,0x4E,0x4E,0x4E};
+
+  nrf24l01_result_t nrf24l01_result;
+  nrf24l01_result = nrf24l01_init(&rf_handle, &hspi1, &micro_timer, NRF_CS_GPIO_Port, NRF_CS_Pin, NRF_CE_GPIO_Port, NRF_CE_Pin, channel, data_rate, power, pipe_address);
+  if (nrf24l01_result != NRF24L01_OK) {
+	  printf("Error when initializing nrf24l01\r\n");
+	  Error_Handler();
+  }
+  else {
+	  printf("Instantiated right!\r\n");
+  }
+
+  // Init success. Set callbacks
+  rf_handle.rx_callback = rx_callback;
+  rf_handle.tx_callback = tx_callback;
+
+  // TEST TRANSMIT! Hope to receive TX callback, and print test message
+  nrf24l01_result = nrf24l01_enter_tx(&rf_handle);
+  if (nrf24l01_result != NRF24L01_OK) {
+	  printf("Error when entering TX mode\r\n");
+  }
+  else {
+	  printf("Entered TX right!\r\n");
+  }
+
+  uint8_t rf_message[32] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+  nrf24l01_result = nrf24l01_transmit(&rf_handle, rf_message, 5);
+  if (nrf24l01_result != NRF24L01_OK) {
+	printf("Error when transmitting\r\n");
+  }
+	else {
+	printf("Transmitted right!\r\n");
+  }
 
   /* USER CODE END 2 */
 
@@ -254,7 +311,14 @@ int main(void)
 
 	  if (nrf_change) {
 		  // TX_DS, RX_DR, or MAX_RT were set high in the status register.
-		  //
+		  nrf24l01_result = nrf24l01_handle_irqs(&rf_handle);
+		  if (nrf24l01_result != NRF24L01_OK) {
+			  printf("Failed to handle IRQs");
+		  }
+		  else {
+			  printf("Handled IRQs right!");
+		  }
+		  nrf_change = 0;
 	  }
 
 	  // METRONOME CODE

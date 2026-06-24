@@ -70,7 +70,7 @@ drv2605l_result_t drv2605l_autoconfig(drv2605l_handle_t *device) {
 	}
 	data = data & ~(0b11111); // Remove bits 4:0
 	data = data | DRV2605L_DRIVE_TIME_VALUE;
-	if (drv2605l_write_byte(device, CONTROL1, data) != DRV2605L_OK) {
+	if (drv2605l_write_byte(device, DRV2605L_CONTROL1, data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
 
@@ -99,7 +99,7 @@ drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
 	data = data & ~(0b111); // Remove bits 2:0 (Mode field)
 	data = data | DRV2605L_AUTO_CALIBRATION_MODE; // Set for auto calibration mode
 	data = data & ~(1 << 6); // Remove from standby
-	if (drv2605l_write_byte(device, MODE, data) != DRV2605L_OK) {
+	if (drv2605l_write_byte(device, DRV2605L_MODE, data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
 
@@ -128,7 +128,7 @@ drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
 		checks ++;
 	}
 
-	if (checks >= MAX_WAIT_CALIBRATE_CYCLES) return DRV2605L_Error;
+	if (checks >= DRV2605L_MAX_WAIT_CALIBRATE_CYCLES) return DRV2605L_Error;
 
 	// Check whether or not the DIAG_RESULT bit (Bit 3) shows successful completion
 	if (drv2605l_read_byte(device, DRV2605L_STATUS, &data) != DRV2605L_OK) {
