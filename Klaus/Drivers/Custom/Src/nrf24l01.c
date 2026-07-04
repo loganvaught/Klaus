@@ -102,7 +102,7 @@ static nrf24l01_result_t nrf24l01_read(nrf24l01_handle_t *device, uint8_t addr, 
   * @retval The nrf24l01_result indicating success or error
   */
 static nrf24l01_result_t nrf24l01_w_tx_payload(nrf24l01_handle_t *device, uint8_t *data, uint16_t size) {
-	if (size > 32 || size == 0) return NRF24L01_TooBig;
+	if (size > NRF24L01_PAYLOAD_WIDTH || size == 0) return NRF24L01_TooBig;
 
 	uint8_t command = NRF24L01_W_TX_PAYLOAD;
 	uint8_t status; // Status register shifted back when sending command
@@ -130,7 +130,7 @@ static nrf24l01_result_t nrf24l01_w_tx_payload(nrf24l01_handle_t *device, uint8_
   * @retval The nrf24l01_result indicating success or error
   */
 static nrf24l01_result_t nrf24l01_r_rx_payload(nrf24l01_handle_t *device, uint8_t *data, uint16_t size) {
-	if (size > 32 || size == 0) return NRF24L01_TooBig;
+	if (size > NRF24L01_PAYLOAD_WIDTH || size == 0) return NRF24L01_TooBig;
 
 	uint8_t command = NRF24L01_R_RX_PAYLOAD;
 	uint8_t status; // Status register shifted back when sending command
@@ -231,14 +231,14 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 	return NRF24L01_OK;
 }
 /**
-  * @brief 	Transmit data (Up to 32 bytes) into the air. Requires TX mode (a call to nrf24l01_enter_tx)
+  * @brief 	Transmit data (Up to NRF24L01_PAYLOAD_WIDTH bytes) into the air. Requires TX mode (a call to nrf24l01_enter_tx)
   * @param  device The nrf24l01_handle to operate on
   * @param	size The number of bytes to transmit
   * @retval The nrf24l01_result indicating success or error
   */
 nrf24l01_result_t nrf24l01_transmit(nrf24l01_handle_t *device, uint8_t *data, uint16_t size) {
 	if (device == NULL) return NRF24L01_NoDevice;
-	if (size > 32 || size == 0) return NRF24L01_TooBig;
+	if (size > NRF24L01_PAYLOAD_WIDTH || size == 0) return NRF24L01_TooBig;
 
 	nrf24l01_result_t result;
 	if (device->mode != NRF24L01_TX) return NRF24L01_IncorrectMode;
@@ -324,15 +324,15 @@ nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
 	// Check for interrupt RX_DR (Data Received)
 	if (status & NRF24L01_RX_DR) {
 		// Receive the data
-		uint8_t data[32];
-		result = nrf24l01_r_rx_payload(device, data, 32);
+		uint8_t data[NRF24L01_PAYLOAD_WIDTH];
+		result = nrf24l01_r_rx_payload(device, data, NRF24L01_PAYLOAD_WIDTH);
 		if (result != NRF24L01_OK) {
 			return result;
 		}
 
 		// use handle callback
 		if (device->rx_callback) {
-			device->rx_callback(data, 32);
+			device->rx_callback(data, NRF24L01_PAYLOAD_WIDTH);
 		}
 	}
 	// TX_DS
@@ -353,6 +353,34 @@ nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
 
 	return NRF24L01_OK;
 }
+
+/**
+  * @brief 	Configure the NRF24L01 for transmission mode. Required for transmission
+  * @param  device The nrf24l01_handle to operate on
+  * @retval The nrf24l01_result indicating success or error
+  */
+nrf24l01_result_t nrf24l01_enter_off(nrf24l01_handle_t *device) {
+	nrf24l01_ce_low(device);
+
+	uint8_t config_reg;
+	nrf24l01_result_t result = nrf24l01_read(device, NRF24L01_CONFIG, &config_reg, 1);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	// Set PWR_UP = 0
+	config_reg &= ~(NRF24L01_PWR_UP_MASK);
+
+	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	device->mode = NRF24L01_Off;
+
+	return NRF24L01_OK;
+}
+
 /**
   * @brief 	Initializes an NRF24L01 to be operated on via a given nrf24l01_handle_t. Automatically sets up
   * 		the given handle, and configures the NRF24L01 over SPI for useage. Does not enter RX or TX mode.
@@ -382,7 +410,7 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	device->CE_Port = CE_Port;
 	device->CE_Pin = CE_Pin;
 	device->micro_timer = micro_timer;
-	device->mode = NRF24L01_Unknown;
+	device->mode = NRF24L01_Off;
 	device->rx_callback = NULL;
 	device->tx_callback = NULL;
 
@@ -455,7 +483,7 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	}
 
 	// Set RX payload widths (RX_PW_P0-5)
-	// This driver currently uses only width 32 bytes, on pipe 0
+	// This driver currently uses only pipe 0
 	data = NRF24L01_PAYLOAD_WIDTH;
 	result = nrf24l01_write(device, NRF24L01_RX_PW_P0, &data, 1);
 	if (result != NRF24L01_OK) {
@@ -463,6 +491,10 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	}
 
 	// Housekeeping.
+
+	// Make sure is in off mode
+	nrf24l01_enter_off(device);
+
 	// Clear interrupts
 	uint8_t clear = NRF24L01_RX_DR | NRF24L01_TX_DS | NRF24L01_MAX_RT;
 	result = nrf24l01_write(device, NRF24L01_STATUS, &clear, 1);
@@ -485,12 +517,67 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	return NRF24L01_OK;
 }
 // Personal debugging. To be removed later
-void nrf24l01_print_last_status(nrf24l01_handle_t *device) {
-	printf("%02X\r\n", device->last_status);
+void nrf24l01_print_status(nrf24l01_handle_t *device) {
+	uint8_t status;
+	uint8_t command = NRF24L01_NOP;
+	nrf24l01_csn_low(device);
+	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
+		nrf24l01_csn_high(device);
+		printf("STATUS register: Failure to print");
+		return;
+	}
+	nrf24l01_csn_high(device);
+	printf("STATUS register: %02X\r\n", status);
 }
 void nrf24l01_print_config(nrf24l01_handle_t *device) {
 	uint8_t config_reg;
 	nrf24l01_read(device, NRF24L01_CONFIG, &config_reg, 1);
-	printf("%02X\r\n", config_reg);
+	printf("CONFIG register: %02X\r\n", config_reg);
+}
+
+void nrf24l01_debug_print_all_important_regs(nrf24l01_handle_t *device) {
+	nrf24l01_print_config(device);
+	nrf24l01_print_status(device);
+
+	uint8_t reg;
+	nrf24l01_read(device, NRF24L01_EN_AA, &reg, 1);
+	printf("EN_AA register: %02X\r\n", reg);
+
+	nrf24l01_read(device, NRF24L01_EN_RXADDR, &reg, 1);
+	printf("EN_RXADDR register: %02X\r\n", reg);
+
+	nrf24l01_read(device, NRF24L01_SETUP_AW, &reg, 1);
+	printf("SETUP_AW register: %02X\r\n", reg);
+
+	nrf24l01_read(device, NRF24L01_SETUP_RETR, &reg, 1);
+	printf("SETUP_RETR register: %02X\r\n", reg);
+
+	nrf24l01_read(device, NRF24L01_RF_CH, &reg, 1);
+	printf("RF_CH register: %02X\r\n", reg);
+
+	nrf24l01_read(device, NRF24L01_RF_SETUP, &reg, 1);
+	printf("RF_SETUP register: %02X\r\n", reg);
+
+	printf("RX_ADDR_P0 (%u bytes): ", 5);
+	uint8_t data[5];
+	nrf24l01_read(device, NRF24L01_RX_ADDR_P0, data, 5);
+	for (int i = 0; i < 5; i++) {
+		printf("%02X ", data[i]);
+	}
+	printf("\r\n");
+
+
+	printf("TX_ADDR (%u bytes): ", 5);
+	nrf24l01_read(device, NRF24L01_TX_ADDR, data, 5);
+	for (int i = 0; i < 5; i++) {
+		printf("%02X ", data[i]);
+	}
+	printf("\r\n");
+
+	nrf24l01_read(device, NRF24L01_RX_PW_P0, &reg, 1);
+	printf("RX PAYLOAD WIDTH: %02X\r\n", reg);
+
+	nrf24l01_read(device, NRF24L01_FIFO_STATUS, &reg, 1);
+	printf("FIFO_STATUS register: %02X\r\n", reg);
 
 }

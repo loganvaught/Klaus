@@ -57,11 +57,17 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define LED_Pin GPIO_PIN_13
+#define LED_GPIO_Port GPIOC
+#define BTN_Pin GPIO_PIN_0
+#define BTN_GPIO_Port GPIOA
+#define BTN_EXTI_IRQn EXTI0_IRQn
 #define ENCODER_A_Pin GPIO_PIN_1
 #define ENCODER_A_GPIO_Port GPIOA
 #define ENCODER_A_EXTI_IRQn EXTI1_IRQn
 #define ENCODER_B_Pin GPIO_PIN_2
 #define ENCODER_B_GPIO_Port GPIOA
+#define ENCODER_B_EXTI_IRQn EXTI2_IRQn
 #define NRF_CE_Pin GPIO_PIN_3
 #define NRF_CE_GPIO_Port GPIOA
 #define NRF_CS_Pin GPIO_PIN_4
@@ -72,9 +78,13 @@ void Error_Handler(void);
 #define SPI_MISO_GPIO_Port GPIOA
 #define SPI_MOSI_Pin GPIO_PIN_7
 #define SPI_MOSI_GPIO_Port GPIOA
-#define NRF_IRQ_Pin GPIO_PIN_0
+#define NRF_IRQ_Pin GPIO_PIN_13
 #define NRF_IRQ_GPIO_Port GPIOB
-#define NRF_IRQ_EXTI_IRQn EXTI0_IRQn
+#define NRF_IRQ_EXTI_IRQn EXTI15_10_IRQn
+#define RF_LED_RX_Pin GPIO_PIN_12
+#define RF_LED_RX_GPIO_Port GPIOA
+#define RF_LED_TX_Pin GPIO_PIN_15
+#define RF_LED_TX_GPIO_Port GPIOA
 #define HAPTIC_SCL_Pin GPIO_PIN_6
 #define HAPTIC_SCL_GPIO_Port GPIOB
 #define HAPTIC_SDA_Pin GPIO_PIN_7

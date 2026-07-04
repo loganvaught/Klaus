@@ -43,7 +43,7 @@
 #define NRF24L01_ADDRESS_WIDTH_VALUE 0x03 // 5 byte addresses
 #define NRF24L01_AUTO_ACK_DISABLE 0x00 // Disable auto ack
 #define NRF24L01_AUTO_RETR_DISABLE 0x00 // Disable auto retransmit
-#define NRF24L01_PAYLOAD_WIDTH 32
+#define NRF24L01_PAYLOAD_WIDTH 6
 #define NRF24L01_EN_RX_ADDR_VALUE 0x01 // Only use pipe 0
 
 // Commands
@@ -83,7 +83,7 @@ typedef enum {
 typedef enum {
 	NRF24L01_TX,
 	NRF24L01_RX,
-	NRF24L01_Unknown,
+	NRF24L01_Off,
 } nrf24l01_mode_t;
 
 typedef struct {
@@ -117,8 +117,10 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device);
 nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device);
 nrf24l01_result_t nrf24l01_transmit(nrf24l01_handle_t *device, uint8_t *data, uint16_t size);
 nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device);
+nrf24l01_result_t nrf24l01_enter_off(nrf24l01_handle_t *device);
 nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *spi, micro_delay_handle_t *micro_timer, GPIO_TypeDef *CS_Port, uint16_t CS_Pin, GPIO_TypeDef *CE_Port, uint16_t CE_Pin, uint8_t channel, nrf24l01_datarate_t data_rate, nrf24l01_power_t power, uint8_t *pipe_address);
-void nrf24l01_print_last_status(nrf24l01_handle_t *device);
+void nrf24l01_print_status(nrf24l01_handle_t *device);
 void nrf24l01_print_config(nrf24l01_handle_t *device);
+void nrf24l01_debug_print_all_important_regs(nrf24l01_handle_t *device);
 
 #endif /* NRF24L01_H */

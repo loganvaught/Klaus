@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "drv2605l.h"
 #include "nrf24l01.h"
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -47,8 +48,8 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
-TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart1;
 
@@ -61,9 +62,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_TIM2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -101,6 +102,7 @@ uint8_t encoder_counterclockwise_dict[4] = {
 // If the new value is in neither, it is just noise
 
 uint8_t nrf_change = 0;
+uint8_t btn_change = 0;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == ENCODER_A_Pin || GPIO_Pin == ENCODER_B_Pin) {
@@ -114,28 +116,39 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		nrf_change = 1;
 		// Automatically set back to high when status register IRQs are cleared
 	}
-}
-
-// Timer for generating metronome beats
-
-uint8_t metronome_beat = 0;
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance == TIM2) {
-		// Timer 2 reset
-		metronome_beat = 1;
+	else if (GPIO_Pin == BTN_Pin) {
+		// User button pressed, indicating NRF mode change.
+		btn_change = 1;
 	}
 }
 
-// Callbacks for NRF24L01
+// NRF24L01 Callbacks/Code/Structs ----------------------------------------------------------
+// XV: CEHCK SIZE OF THIS STRUCT
+uint8_t rf_buff[6] = {
+		// 1 = BPM, MSB
+		// 2 = BPM, LSB
+		// 3 = Master timestamp, MSB
+		// 6 = Master timestamp, LSB
+};
+
+uint8_t receive_flag = 0;
+
 void rx_callback(uint8_t *data, uint16_t length) {
-	printf("RX (%u bytes): ", length);
-	for (int i = 0; i < length; i++) {
-		printf("%02X ", data[i]);
+	if (length == (sizeof(rf_buff) / sizeof(rf_buff[0]))) {
+		for (int i = 0; i < length; i ++) {
+			rf_buff[i] = data[i];
+		}
+		receive_flag = 1;
 	}
-	printf("\r\n");
+	else {
+		printf("Received data of unexpected length.\r\n");
+		Error_Handler();
+	}
 }
+
+uint8_t transmit_flag = 0;
 void tx_callback() {
-  printf("Data sent over air successfully!\r\n");
+  transmit_flag = 1;
 }
 
 /* USER CODE END 0 */
@@ -171,20 +184,21 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
-  MX_TIM2_Init();
   MX_SPI1_Init();
   MX_TIM3_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   printf("\r\nWorking!\r\n");
+
+  // ---------------- Functionality of Metronome ---------------//
+  // Start timer for metronome beats. 32 bit
+  HAL_TIM_Base_Start_IT(&htim5);
 
   // -------------- DRV2605L -------------- //
 
   drv2605l_handle_t haptic_driver;
   drv2605l_init(&haptic_driver, &hi2c1);
-
-  // Start timer for generating metronome beats
-  HAL_TIM_Base_Start_IT(&htim2);
 
   /* CODE TO CYCLE THROUGH ALL THE VIBRATION WAVEFORMS
   for (uint8_t i = 1; i < 124; i ++) {
@@ -197,13 +211,14 @@ int main(void)
 
   nrf24l01_handle_t rf_handle;
   micro_delay_handle_t micro_timer;
-  HAL_TIM_Base_Start(&htim3);
+  HAL_TIM_Base_Start(&htim3); // The timer to be used with the microsecond wait
   micro_delay_init(&micro_timer, &htim3);
-  uint8_t channel = 1;
-  nrf24l01_datarate_t data_rate = NRF24L01_DR_1MBPS;
-  nrf24l01_power_t power = NRF24L01_PWR_NEG18DBM;
-  uint8_t pipe_address[5] = {0x4E,0x4E,0x4E,0x4E,0x4E};
+  uint8_t channel = 92;
+  nrf24l01_datarate_t data_rate = NRF24L01_DR_250KBPS;
+  nrf24l01_power_t power = NRF24L01_PWR_0DBM;
+  uint8_t pipe_address[5] = {0x55,0x4E,0x55,0x4E,0x55,};
 
+  // Initialize nrf
   nrf24l01_result_t nrf24l01_result;
   nrf24l01_result = nrf24l01_init(&rf_handle, &hspi1, &micro_timer, NRF_CS_GPIO_Port, NRF_CS_Pin, NRF_CE_GPIO_Port, NRF_CE_Pin, channel, data_rate, power, pipe_address);
   if (nrf24l01_result != NRF24L01_OK) {
@@ -218,30 +233,25 @@ int main(void)
   rf_handle.rx_callback = rx_callback;
   rf_handle.tx_callback = tx_callback;
 
-  // TEST TRANSMIT! Hope to receive TX callback, and print test message
-  nrf24l01_result = nrf24l01_enter_tx(&rf_handle);
-  if (nrf24l01_result != NRF24L01_OK) {
-	  printf("Error when entering TX mode\r\n");
-  }
-  else {
-	  printf("Entered TX right!\r\n");
-  }
-
-  uint8_t rf_message[32] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
-  nrf24l01_result = nrf24l01_transmit(&rf_handle, rf_message, 5);
-  if (nrf24l01_result != NRF24L01_OK) {
-	printf("Error when transmitting\r\n");
-  }
-	else {
-	printf("Transmitted right!\r\n");
-  }
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
   int16_t tempo = 60;
+  uint32_t pulse_timestamps[3] = {
+		  /* Example, does not account for different "phase" variations in array (eg. 0 is 1, and 1 is 2, and 2 is 0, etc)
+		   * [0] = Current Timestamp. Metronome WILL beat when internal timestamp gets here
+		   * [1] = Next timestamp. Metronome will beat around this, depending on clock drift calculations
+		   * [2] = Future timestamp. Used so that pulses can generate continuously without disrupting possible clock drift
+		   * 	   calculations. Eg. This is needed to establish a reference point when the clock eventually arrives.
+		   * 	   Prevents breaking if master signal is not received. Will assume tempo remains constant
+		   */
+  };
+  uint8_t pulse_index_on = 0;
+  uint8_t initialized_timestamps = 0; // Boolean flag for checking if the first timetsamps have been generated. Used to generate the 3 future pulse timestamps
+  int32_t timestamp_offset_from_master = 0; // How far apart the master is from us. Positive = master ahead. Negative = slave ahead
+  uint8_t initialized_offset = 0; // Boolean flag for jumping to the master's first timestamp, if one has not been established. Jumps to master timestamp to avoid long periods of waiting to "glide" to the pulse beat
 
   while (1)
   {
@@ -254,80 +264,180 @@ int main(void)
 
 	  if (encoder_change) {
 		  // Rotary encoder twisted
-		  encoder_state = (HAL_GPIO_ReadPin(ENCODER_A_GPIO_Port, ENCODER_A_Pin) << 1) | HAL_GPIO_ReadPin(ENCODER_B_GPIO_Port, ENCODER_B_Pin);
-		  int8_t change = 0;
-		  if (encoder_clockwise_dict[encoder_last_state] == encoder_state) {
-			  // Go clockwise
-			  change = 1;
+		  // Make sure not in RX mode.
+		  if (rf_handle.mode != NRF24L01_RX) {
+			  encoder_state = (HAL_GPIO_ReadPin(ENCODER_A_GPIO_Port, ENCODER_A_Pin) << 1) | HAL_GPIO_ReadPin(ENCODER_B_GPIO_Port, ENCODER_B_Pin);
+			  int8_t change = 0;
+			  if (encoder_clockwise_dict[encoder_last_state] == encoder_state) {
+				  // Go clockwise
+				  change = 1;
+			  }
+			  else if (encoder_counterclockwise_dict[encoder_last_state] == encoder_state) {
+				  // Go counterclockwise
+				  change = -1;
+			  }
+			  else {
+				  // Noise, ignore
+			  }
+
+			  if (encoder_state == 0) { // The encoder is detented, so this checks for a complete twist.
+				  uint16_t new_tempo = tempo + change;
+
+				  // Make sure tempo in range
+				  // And, multiply change to make twisting knob faster for higher tempos
+
+				  if (new_tempo >= 30 && new_tempo < 60) {
+					  new_tempo += 1 * change;
+					  tempo = new_tempo;
+				  }
+				  else if (new_tempo >= 60 && new_tempo < 72) {
+					  new_tempo += 2 * change;
+					  tempo = new_tempo;
+				  }
+				  else if (new_tempo >= 72 && new_tempo < 120) {
+					  new_tempo += 3 * change;
+					  tempo = new_tempo;
+				  }
+				  else if (new_tempo >= 120 && new_tempo < 144) {
+					  new_tempo += 5 * change;
+					  tempo = new_tempo;
+				  }
+				  else if (new_tempo >= 144 && new_tempo < 208) {
+					  new_tempo += 7 * change;
+					  tempo = new_tempo;
+				  }
+				  printf("New tempo: %u\r\n", tempo);
+				  initialized_timestamps = 0;
+			  }
+
+			  encoder_last_state = encoder_state;
 		  }
-		  else if (encoder_counterclockwise_dict[encoder_last_state] == encoder_state) {
-			  // Go counterclockwise
-			  change = -1;
-		  }
-		  else {
-			  // Noise, ignore
-		  }
-
-		  if (encoder_state == 0) { // The encoder is detented, so this checks for a complete twist.
-			  uint16_t new_tempo = tempo + change;
-
-			  // Make sure tempo in range
-			  // And, multiply change to make twisting knob faster for higher tempos
-
-			  if (new_tempo >= 30 && new_tempo < 60) {
-				  new_tempo += 1 * change;
-				  tempo = new_tempo;
-			  }
-			  else if (new_tempo >= 60 && new_tempo < 72) {
-				  new_tempo += 2 * change;
-				  tempo = new_tempo;
-			  }
-			  else if (new_tempo >= 72 && new_tempo < 120) {
-				  new_tempo += 3 * change;
-				  tempo = new_tempo;
-			  }
-			  else if (new_tempo >= 120 && new_tempo < 144) {
-				  new_tempo += 5 * change;
-				  tempo = new_tempo;
-			  }
-			  else if (new_tempo >= 144 && new_tempo < 208) {
-				  new_tempo += 7 * change;
-				  tempo = new_tempo;
-			  }
-
-			  // Calculate new counter period for timer with new tempo
-			  uint16_t new_period = 600000 / tempo;
-			  printf("New period: %d. New tempo: %d\r\n", new_period, tempo);
-			  __HAL_TIM_SET_COUNTER(&htim2, 0);
-			  __HAL_TIM_SET_AUTORELOAD(&htim2, new_period - 1);
-		  }
-
-		  encoder_last_state = encoder_state;
 		  encoder_change = 0;
-
 	  }
 
 	  // NRF CODE
 
-	  if (nrf_change) {
-		  // TX_DS, RX_DR, or MAX_RT were set high in the status register.
+	  if (nrf_change) { // Handle RF interrupts
+		  // An IRQ was set high in the status register. Handle it
 		  nrf24l01_result = nrf24l01_handle_irqs(&rf_handle);
-		  if (nrf24l01_result != NRF24L01_OK) {
+		  /*if (nrf24l01_result != NRF24L01_OK) {
 			  printf("Failed to handle IRQs");
 		  }
 		  else {
 			  printf("Handled IRQs right!");
-		  }
+		  }*/
 		  nrf_change = 0;
 	  }
 
-	  // METRONOME CODE
+	  if (btn_change) { // Handle mode changes
+		  btn_change = 0;
+		  // Reset master offset, and re-initialize timestamps on the next loop.
+		  timestamp_offset_from_master = 0;
+		  initialized_timestamps = 0;
+		  initialized_offset = 0;
+		  switch (rf_handle.mode) {
+		  case NRF24L01_RX: // Entering Off mode from RX mode
+			  printf("Entering OFF\r\n");
+			  nrf24l01_enter_off(&rf_handle);
+			  HAL_GPIO_WritePin(RF_LED_TX_GPIO_Port, RF_LED_TX_Pin, GPIO_PIN_RESET);
+			  HAL_GPIO_WritePin(RF_LED_RX_GPIO_Port, RF_LED_RX_Pin, GPIO_PIN_RESET);
+			  break;
+		  case NRF24L01_Off: // Entering TX mode from Off mode
+			  printf("Entering TX\r\n");
+			  nrf24l01_enter_tx(&rf_handle);
+			  HAL_GPIO_WritePin(RF_LED_TX_GPIO_Port, RF_LED_TX_Pin, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(RF_LED_RX_GPIO_Port, RF_LED_RX_Pin, GPIO_PIN_RESET);
+			  break;
+		  case NRF24L01_TX: // Entering RX from TX mode
+			  printf("Entering RX\r\n");
+			  nrf24l01_enter_rx(&rf_handle);
+			  HAL_GPIO_WritePin(RF_LED_RX_GPIO_Port, RF_LED_RX_Pin, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(RF_LED_TX_GPIO_Port, RF_LED_TX_Pin, GPIO_PIN_RESET);
+			  break;
+		  default:
+			  printf("Invalid button mode\r\n");
+			  Error_Handler();
+		  }
+	  }
 
-	  if (metronome_beat) {
-		  // Play vibration waveform for beat
-		  printf("Pulse\r\n");
+	  // Metronome Code
+
+	  if (initialized_timestamps == 0) {
+		  initialized_timestamps = 1;
+		  uint32_t this_timestamp = htim5.Instance->CNT;
+		  pulse_timestamps[0] = this_timestamp + 600000/tempo - timestamp_offset_from_master;
+		  pulse_timestamps[1] = this_timestamp + 2 * (600000/tempo) - timestamp_offset_from_master;
+		  pulse_timestamps[2] = this_timestamp + 3 * (600000/tempo) - timestamp_offset_from_master;
+		  pulse_index_on = 0;
+	  }
+
+	  if (receive_flag) { // Handle master-sent packets in RX mode
+		  // printf("Received new info\r\n");
+		  receive_flag = 0;
+		  // Decode the packet info
+		  tempo = rf_buff[0] << 8 | rf_buff[1];
+		  uint32_t master_timestamp = rf_buff[2] << 24 | rf_buff[3] << 16 | rf_buff[4] << 8 | rf_buff[5];
+		  uint32_t this_timestamp = htim5.Instance->CNT;
+		  // Calculate difference in timestamp
+		  int32_t difference = (int32_t) (master_timestamp - this_timestamp);
+
+		  if (initialized_offset == 0 || (difference - timestamp_offset_from_master) > 1000 || (difference - timestamp_offset_from_master) < -1000) {
+			  // Has never been in contact with a master yet, or, the difference is so large that it must snap
+			  // Forces recalculation of future pulses
+			  initialized_offset = 1;
+			  // Flag the reinitialization of the next 3 pulses.
+			  initialized_timestamps = 0;
+			  htim5.Instance->CNT = master_timestamp;
+		  }
+		  else {
+			  // Look at difference in timestamp between master and slave.
+			  // Gradually "glide" the offset as one gets ahead of the other, to account for clock drift
+			  // Get new offset
+			  timestamp_offset_from_master += (difference - timestamp_offset_from_master) * 0.3; // Smooth out offset over many beats.
+
+			  // Adjust future pulse timestamp calculations. Also account for possible new tempo
+			  pulse_timestamps[(pulse_index_on + 1)%3] = this_timestamp + 600000/tempo - timestamp_offset_from_master;
+			  pulse_timestamps[(pulse_index_on + 2)%3] = this_timestamp + 2*(600000/tempo) - timestamp_offset_from_master;
+		  }
+	  }
+
+	  if (transmit_flag) {
+		  //printf("Successfully transmitted\r\n");
+		  transmit_flag = 0;
+	  }
+
+	  // Check if it is time to generate a metronome pulse
+	  // Does not call get_timestamp() because this if statement runs every loop. The extra function call is unneccessary.
+	  if (htim5.Instance->CNT >= pulse_timestamps[pulse_index_on]) {
+		  //printf("Pulse\r\n");
+		  //nrf24l01_debug_print_all_important_regs(&rf_handle);
+		  // Time to generate beat
+		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  drv2605l_play(&haptic_driver, 4);
-		  metronome_beat = 0;
+
+		  // Create new pulse timestamp
+		  pulse_timestamps[pulse_index_on] = pulse_timestamps[(pulse_index_on + 2)%3] + 600000/tempo;
+		  // Increment index for pulse buffer
+		  pulse_index_on = (pulse_index_on + 1)%3;
+
+		  // If in TX mode, transmit master info.
+		  if (rf_handle.mode == NRF24L01_TX) {
+			  rf_buff[0] = tempo >> 8;
+			  rf_buff[1] = tempo & 0xFF;
+			  uint32_t this_timestamp = htim5.Instance->CNT;
+			  rf_buff[2] = this_timestamp >> 24;
+			  rf_buff[3]= (this_timestamp >> 16) & 0xFF;
+			  rf_buff[4]= (this_timestamp >> 8) & 0xFF;
+			  rf_buff[5]= this_timestamp & 0xFF;
+
+			  nrf24l01_result = nrf24l01_transmit(&rf_handle, rf_buff, 6);
+			  if (nrf24l01_result != NRF24L01_OK) {
+				  printf("Error when transmitting\r\n");
+			  }
+			  else {
+				  printf("Transmitted right!\r\n");
+			  }
+		  }
 	  }
 
     /* USER CODE END WHILE */
@@ -455,51 +565,6 @@ static void MX_SPI1_Init(void)
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 10000 - 1;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 10000 - 1;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
   * @brief TIM3 Initialization Function
   * @param None
   * @retval None
@@ -541,6 +606,51 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 10000 - 1;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
@@ -590,21 +700,32 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, NRF_CE_Pin|NRF_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : ENCODER_A_Pin ENCODER_B_Pin */
-  GPIO_InitStruct.Pin = ENCODER_A_Pin|ENCODER_B_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, NRF_CE_Pin|NRF_CS_Pin|RF_LED_RX_Pin|RF_LED_TX_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : LED_Pin */
+  GPIO_InitStruct.Pin = LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BTN_Pin ENCODER_A_Pin ENCODER_B_Pin */
+  GPIO_InitStruct.Pin = BTN_Pin|ENCODER_A_Pin|ENCODER_B_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : NRF_CE_Pin NRF_CS_Pin */
-  GPIO_InitStruct.Pin = NRF_CE_Pin|NRF_CS_Pin;
+  /*Configure GPIO pins : NRF_CE_Pin NRF_CS_Pin RF_LED_RX_Pin RF_LED_TX_Pin */
+  GPIO_InitStruct.Pin = NRF_CE_Pin|NRF_CS_Pin|RF_LED_RX_Pin|RF_LED_TX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -622,6 +743,12 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
