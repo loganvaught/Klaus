@@ -206,6 +206,12 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 
 	// Set PWR_UP = 1
 	config_reg |= NRF24L01_PWR_UP_MASK;
+	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
 
 	// Set PRIM_RX = 0
 	config_reg &= ~(NRF24L01_PRIM_RX_MASK);
@@ -215,7 +221,6 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 		return result;
 	}
 
-	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
 	// Clear the FIFO
 	result = nrf24l01_flush_tx(device);
 	if (result != NRF24L01_OK) {
@@ -279,6 +284,12 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device) {
 
 	// Set PWR_UP = 1
 	config_reg |= NRF24L01_PWR_UP_MASK;
+	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
 
 	// Set PRIM_RX = 1
 	config_reg |= NRF24L01_PRIM_RX_MASK;
@@ -286,8 +297,6 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device) {
 	if (result != NRF24L01_OK) {
 		return result;
 	}
-
-	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
 
 	// Clear the FIFO
 	result = nrf24l01_flush_rx(device);

@@ -374,6 +374,7 @@ int main(void)
 	  if (receive_flag) { // Handle master-sent packets in RX mode
 		  // printf("Received new info\r\n");
 		  receive_flag = 0;
+		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  // Decode the packet info
 		  tempo = rf_buff[0] << 8 | rf_buff[1];
 		  uint32_t master_timestamp = rf_buff[2] << 24 | rf_buff[3] << 16 | rf_buff[4] << 8 | rf_buff[5];
@@ -412,7 +413,9 @@ int main(void)
 		  //printf("Pulse\r\n");
 		  //nrf24l01_debug_print_all_important_regs(&rf_handle);
 		  // Time to generate beat
-		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+		  if (rf_handle.mode != NRF24L01_RX) {
+			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+		  }
 		  drv2605l_play(&haptic_driver, 4);
 
 		  // Create new pulse timestamp
