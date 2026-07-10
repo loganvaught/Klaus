@@ -525,7 +525,8 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 
 	return NRF24L01_OK;
 }
-// Personal debugging. To be removed later
+
+/* Debugging
 void nrf24l01_print_status(nrf24l01_handle_t *device) {
 	uint8_t status;
 	uint8_t command = NRF24L01_NOP;
@@ -589,4 +590,4 @@ void nrf24l01_debug_print_all_important_regs(nrf24l01_handle_t *device) {
 	nrf24l01_read(device, NRF24L01_FIFO_STATUS, &reg, 1);
 	printf("FIFO_STATUS register: %02X\r\n", reg);
 
-}
+}*/
