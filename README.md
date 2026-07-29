@@ -31,13 +31,13 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 - Supply 5v to the STM32 5v pin, and the DRV2605L haptic board. Supply 3.3v to the NRF24L01+ board; or, use an NRF24L01 adapter board, which takes 5V. 
 
 # Design and Functionality
-Note: Block diagram does not show the rotary encoder or the button for mode switching.
+Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
 ![System Block Diagram](docs/block_diagram.png)
 ## Peripherals / Functionality
 - I2C: DRV2605L
 - SPI: NRF24L01+
 - UART: Serial debugging
-- Timers: RF syncing and metronome beat generation, microsecond delay for driver initialization
+- Timers: RF syncing and metronome beat generation, microsecond delay for driver setup / mode switching
 - GPIO Interrupts: rotary encoder for tempo change, RF interrupt detection
 ## Design Choices / Tradeoffs
 - ELV1411A: LRAs generate stronger "click" sensations for musicians
