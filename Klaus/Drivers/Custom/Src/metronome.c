@@ -29,9 +29,8 @@ void metronome_change_tempo(metronome_t *device, metronome_direction_t direction
 
 	uint16_t new_tempo = device->tempo + change;
 
-	// Make sure tempo in range
-	// And, multiply change to make twisting knob faster for higher tempos
-
+	// Make sure tempo in desired range to avoid glitches / too slow / too fast
+	// Accelerate the amount of "tempo" changed depending on current tempo
 	if (new_tempo >= 30 && new_tempo < 60) {
 		new_tempo += 1 * change;
 		device->tempo = new_tempo;
@@ -67,14 +66,12 @@ void metronome_reset_rf(metronome_t *device) {
 	device->initialized_offset = 0;
 }
 
-// Call the pulse callback, and schedule the next pulse
 static void metronome_pulse(metronome_t *device) {
 	if (device->pulse_callback) {
 		device->pulse_callback(device->tempo, device->tim->Instance->CNT);
 	}
-	// Create new pulse timestamp
+
 	device->pulse_timestamps[device->pulse_index_on] = device->pulse_timestamps[(device->pulse_index_on + 2)%3] + TIMER_TICKS_PER_MINUTE/device->tempo;
-	// Increment index for pulse buffer
 	device->pulse_index_on = (device->pulse_index_on + 1)%3;
 }
 
@@ -85,7 +82,6 @@ static void metronome_pulse(metronome_t *device) {
   * @retval Nothing
   */
 void metronome_update(metronome_t *device) {
-	// Initialize timestamps if not initialized
 	if (device->initialized_timestamps == 0) {
 		device->initialized_timestamps = 1;
 		uint32_t this_timestamp = device->tim->Instance->CNT;
@@ -97,7 +93,6 @@ void metronome_update(metronome_t *device) {
 		device->pulse_index_on = 0;
 	}
 
-	// Check if new pulse is due
 	if (device->tim->Instance->CNT >= device->pulse_timestamps[device->pulse_index_on]) {
 		metronome_pulse(device);
 	}
@@ -113,24 +108,22 @@ void metronome_update(metronome_t *device) {
 void metronome_process_rf(metronome_t *device, uint16_t new_tempo, uint32_t master_timestamp) {
 	device->tempo = new_tempo;
 
-	// Calculate difference in timestamp
+	// Calculate difference in timestamp between this device and master
 	uint32_t this_timestamp = device->tim->Instance->CNT;
 	int32_t difference = (int32_t) (master_timestamp - this_timestamp);
 
-	// Check if just entered RX for first time, or if TX is reconnected / there is a new TX
+	// Check if just entered RX for first time, or if TX is reconnected, or there is a new TX device
 	if (device->initialized_offset == 0 || (difference - device->timestamp_offset_from_master) > RF_RESYNC_THRESHOLD || (difference - device->timestamp_offset_from_master) < -RF_RESYNC_THRESHOLD) {
-		// Forces recalculation of future pulses
+		// Force recalculation of future pulses and snap to master for smoother operation
 		device->initialized_offset = 1;
-		// Flag the reinitialization of the next 3 pulses.
 		device->initialized_timestamps = 0;
-		// Snap the timestamp
 		device->tim->Instance->CNT = master_timestamp;
 	}
 	else {
-		// Gradually "glide" the offset as one gets ahead of the other, to account for clock drift
-		device->timestamp_offset_from_master += (difference - device->timestamp_offset_from_master) * OFFSET_GLIDE_FACTOR; // Smooth out offset over many beats.
+		// Gradually "glide" the offset as one gets ahead of the other, to make up for gradual clock drifting
+		device->timestamp_offset_from_master += (difference - device->timestamp_offset_from_master) * OFFSET_GLIDE_FACTOR;
 
-		// Adjust future pulse timestamp calculations
+		// Adjust future pulse timestamps
 		device->pulse_timestamps[(device->pulse_index_on + 1)%3] = this_timestamp + TIMER_TICKS_PER_MINUTE/new_tempo - device->timestamp_offset_from_master;
 		device->pulse_timestamps[(device->pulse_index_on + 2)%3] = this_timestamp + 2*(TIMER_TICKS_PER_MINUTE/new_tempo) - device->timestamp_offset_from_master;
 	}
@@ -145,8 +138,8 @@ void metronome_process_rf(metronome_t *device, uint16_t new_tempo, uint32_t mast
 void metronome_init(metronome_t *device, TIM_HandleTypeDef *tim) {
 	device->tim = tim;
 	device->tempo = DEFAULT_TEMPO;
-	device->initialized_timestamps = 0; // Flag generation of pulse timestamps
+	device->initialized_timestamps = 0;
 	device->timestamp_offset_from_master = 0;
-	device->initialized_offset = 0; // Flag for establishing a reliable "timestamp connection" with master when RF is turned on
+	device->initialized_offset = 0;
 	device->pulse_callback = NULL; // To be set by main.c
 }

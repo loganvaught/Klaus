@@ -21,11 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
 #include "drv2605l.h"
 #include "nrf24l01.h"
 #include "metronome.h"
-#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -76,7 +74,7 @@ static void MX_TIM5_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Code to redirect printf through UART.
+// Redirect printf through UART
 int _write(int fd, char* ptr, int len) {
 	HAL_StatusTypeDef hstatus;
 
@@ -94,40 +92,30 @@ uint8_t encoder_last_state = 0;
 uint8_t encoder_state = 0;
 uint8_t encoder_change = 2;
 
-// Going Clockwise: 00, 10, 11, 01, 00 -- 0, 2, 3, 1, 0
-// If encoder_clockwise_dict[last_state] == new state, you go clockwise.
+// Arrays to differentiate between "noise" and a real, encoder direction
 uint8_t encoder_clockwise_dict[4] = {
 		2, 0, 3, 1
 };
-// If encoder_counterclockwise_dict[last_state] == new state, you go counterclockwise.
 uint8_t encoder_counterclockwise_dict[4] = {
 		1, 3, 0, 2
 };
-// If the new value is in neither, it is just noise
 
 uint8_t nrf_irq_pending = 0;
 uint8_t btn_pressed = 0;
-// Setup callbacks for buttons, tempo knob, RF interrupt pin
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == ENCODER_A_Pin || GPIO_Pin == ENCODER_B_Pin) {
-		// Encoder A pin
 		encoder_change = 1;
 	}
 	else if (GPIO_Pin == NRF_IRQ_Pin) {
-		// NRF Interrupt pin
-		// Active low.
-		// Set flag to handle the IRQ
 		nrf_irq_pending = 1;
-		// Automatically set back to high when status register IRQs are cleared
 	}
 	else if (GPIO_Pin == BTN_Pin) {
-		// User button pressed, indicating NRF mode change.
 		btn_pressed = 1;
 	}
 }
 
-// NRF24L01 code
-// Array used for transmitting master timestamp and BPM in TX, or receiving in RX
+// 6-byte array used for transmitting RF synchronization packets
 uint8_t rf_buff[6] = {
 		// 1 = BPM, MSB
 		// 2 = BPM, LSB
@@ -135,7 +123,7 @@ uint8_t rf_buff[6] = {
 		// 6 = Master timestamp, LSB
 };
 
-// Callback to process received information
+// RF CALLBACKS
 uint8_t packet_received = 0;
 void rx_callback(uint8_t *data, uint16_t length) {
 	if (length == (sizeof(rf_buff) / sizeof(rf_buff[0]))) {
@@ -145,34 +133,30 @@ void rx_callback(uint8_t *data, uint16_t length) {
 		packet_received = 1;
 	}
 	else {
-		printf("Received data of unexpected length.\r\n");
+		MAIN_DBG("Received data of unexpected length.\r\n");
 		Error_Handler();
 	}
 }
 
-// Callback for a successful transmit
-uint8_t transmit_flag = 0;
+uint8_t packet_sent = 0;
 void tx_callback() {
-  transmit_flag = 1;
+	packet_sent = 1;
 }
 
+// Handles to interact with drivers / custom libraries
 drv2605l_handle_t haptic_driver;
 nrf24l01_handle_t rf_handle;
 metronome_t metronome;
 
-// Callback for metronome pulse
-// Blink on-board LED for visual debugging
+// METRONOME CALLBACK
 void pulse_callback(uint16_t tempo, uint32_t timestamp) {
 	if (rf_handle.mode != NRF24L01_RX) {
 		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	}
 
-	// Play the vibration waveform (4 is for sharp short click)
 	drv2605l_play(&haptic_driver, DRV2605L_WAVEFORM_USE);
 
-	// If in TX mode, transmit timestamp and tempo
 	if (rf_handle.mode == NRF24L01_TX) {
-		// Fill rf buffer
 		rf_buff[0] = tempo >> 8;
 		rf_buff[1] = tempo & 0xFF;
 		rf_buff[2] = timestamp >> 24;
@@ -182,7 +166,7 @@ void pulse_callback(uint16_t tempo, uint32_t timestamp) {
 
 		nrf24l01_result_t nrf24l01_result = nrf24l01_transmit(&rf_handle, rf_buff, 6);
 		if (nrf24l01_result != NRF24L01_OK) {
-			printf("Error when transmitting\r\n");
+			MAIN_DBG("Error when transmitting\r\n");
 		}
 	}
 }
@@ -226,47 +210,36 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 
-  printf("\r\nWorking!\r\n");
+  MAIN_DBG("\r\nWorking!\r\n");
 
   // -------------- DRV2605L setup -------------- //
 
   drv2605l_init(&haptic_driver, &hi2c1);
 
-  /* CODE TO CYCLE THROUGH ALL THE VIBRATION WAVEFORMS
-  for (uint8_t i = 1; i < 124; i ++) {
-	  HAL_Delay(250);
-	  printf("Playing: %u\r\n",i);
-	  drv2605l_play(i);
-  }*/
-
   // -------------- NRF24L01+ setup -------------- //
 
   micro_delay_handle_t micro_timer;
-  HAL_TIM_Base_Start(&htim3); // The timer to be used with the microsecond wait
+  HAL_TIM_Base_Start(&htim3);
   micro_delay_init(&micro_timer, &htim3);
   uint8_t channel = RF_CHANNEL;
   nrf24l01_datarate_t data_rate = NRF24L01_DR_250KBPS;
   nrf24l01_power_t power = NRF24L01_PWR_0DBM;
   uint8_t pipe_address[5] = {0x55,0x4E,0x55,0x4E,0x55,};
-
-  // Initialize nrf
   nrf24l01_result_t nrf24l01_result;
   nrf24l01_result = nrf24l01_init(&rf_handle, &hspi1, &micro_timer, NRF_CS_GPIO_Port, NRF_CS_Pin, NRF_CE_GPIO_Port, NRF_CE_Pin, channel, data_rate, power, pipe_address);
   if (nrf24l01_result != NRF24L01_OK) {
-	  printf("Error when initializing nrf24l01\r\n");
+	  MAIN_DBG("Error when initializing nrf24l01\r\n");
 	  Error_Handler();
   }
   else {
-	  printf("Instantiated right!\r\n");
+	  MAIN_DBG("Initialized RF right!\r\n");
   }
 
-  // Init success. Set callbacks
   rf_handle.rx_callback = rx_callback;
   rf_handle.tx_callback = tx_callback;
 
   // -------------- Metronome setup -------------- //
 
-  // Start timer for metronome beats. 32 bit
   HAL_TIM_Base_Start_IT(&htim5);
   metronome_init(&metronome, &htim5);
   metronome.pulse_callback = pulse_callback;
@@ -286,25 +259,23 @@ int main(void)
 	  }
 
 	  if (encoder_change) {
-		  // Rotary encoder twisted
-		  // Make sure not in RX mode.
-		  if (rf_handle.mode != NRF24L01_RX) {
+		  if (rf_handle.mode != NRF24L01_RX) { // Ensure not in RX mode
 			  encoder_state = (HAL_GPIO_ReadPin(ENCODER_A_GPIO_Port, ENCODER_A_Pin) << 1) | HAL_GPIO_ReadPin(ENCODER_B_GPIO_Port, ENCODER_B_Pin);
 			  metronome_direction_t direction;
 			  if (encoder_clockwise_dict[encoder_last_state] == encoder_state) {
-				  // Go clockwise
+				  // Clockwise
 				  direction = METRONOME_FORWARD;
 			  }
 			  else if (encoder_counterclockwise_dict[encoder_last_state] == encoder_state) {
-				  // Go counterclockwise
+				  // Counterclockwise
 				  direction = METRONOME_BACKWARD;
 			  }
 			  else {
-				  // Noise, ignore
+				  // Noise
 				  direction = METRONOME_NONE;
 			  }
 
-			  if (encoder_state == 0) { // The encoder is detented, so this checks for a complete twist.
+			  if (encoder_state == 0) { // Encoder has detents. Check for completed detent
 				  metronome_change_tempo(&metronome, direction);
 			  }
 
@@ -315,9 +286,7 @@ int main(void)
 
 	  //---------------------------- nRF24L01+ CODE ------------------------------//
 
-	  // Handle interrupts
 	  if (nrf_irq_pending) {
-		  // An IRQ was set high in the status register. Handle it
 		  nrf24l01_result = nrf24l01_handle_irqs(&rf_handle);
 		  if (nrf24l01_result != NRF24L01_OK) {
 			  Error_Handler();
@@ -325,55 +294,61 @@ int main(void)
 		  nrf_irq_pending = 0;
 	  }
 
-	  // Handle mode changes
 	  if (btn_pressed) {
-		  btn_pressed = 0;
-
-		  // Reset the offset, and re-initialize pulse timestamps
+		  // Reset the offset and re-initialize timestamps for smoother mode change
 		  metronome_reset_rf(&metronome);
 		  switch (rf_handle.mode) {
-		  case NRF24L01_RX: // Entering Off mode
-			  nrf24l01_enter_off(&rf_handle);
+		  case NRF24L01_RX: // Entering standby mode
+			  nrf24l01_result = nrf24l01_enter_standby(&rf_handle);
+			  if (nrf24l01_result != NRF24L01_OK) {
+				  MAIN_DBG("Error when entering off\r\n");
+			  }
 			  HAL_GPIO_WritePin(RF_LED_TX_GPIO_Port, RF_LED_TX_Pin, GPIO_PIN_RESET);
 			  HAL_GPIO_WritePin(RF_LED_RX_GPIO_Port, RF_LED_RX_Pin, GPIO_PIN_RESET);
 			  break;
-		  case NRF24L01_Off: // Entering TX mode
-			  nrf24l01_enter_tx(&rf_handle);
+		  case NRF24L01_Standby: // Entering TX mode
+			  nrf24l01_result = nrf24l01_enter_tx(&rf_handle);
+			  if (nrf24l01_result != NRF24L01_OK) {
+				  MAIN_DBG("Error when entering TX\r\n");
+			  }
 			  HAL_GPIO_WritePin(RF_LED_TX_GPIO_Port, RF_LED_TX_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(RF_LED_RX_GPIO_Port, RF_LED_RX_Pin, GPIO_PIN_RESET);
 			  break;
-		  case NRF24L01_TX: // Entering RX
-			  nrf24l01_enter_rx(&rf_handle);
+		  case NRF24L01_TX: // Entering RX mode
+			  nrf24l01_result = nrf24l01_enter_rx(&rf_handle);
+			  if (nrf24l01_result != NRF24L01_OK) {
+				  MAIN_DBG("Error when entering RX\r\n");
+			  }
 			  HAL_GPIO_WritePin(RF_LED_RX_GPIO_Port, RF_LED_RX_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(RF_LED_TX_GPIO_Port, RF_LED_TX_Pin, GPIO_PIN_RESET);
 			  break;
 		  default:
-			  printf("Invalid button mode\r\n");
+			  MAIN_DBG("Invalid button mode\r\n");
 			  Error_Handler();
 		  }
+
+		  // Debounce to avoid button press registering as multiple mode changes
+		  HAL_Delay(10);
+		  btn_pressed = 0;
 	  }
 
 	  //---------------------------- METRONOME CODE ------------------------------//
 
-	  // Check for initialization of timestasmps
-	  // Check if time to pulse
 	  metronome_update(&metronome);
 
-	  // Handle RX
 	  if (packet_received) {
 		  packet_received = 0;
 		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
-		  // Decode the packet
 		  uint16_t tempo = rf_buff[0] << 8 | rf_buff[1];
 		  uint32_t master_timestamp = rf_buff[2] << 24 | rf_buff[3] << 16 | rf_buff[4] << 8 | rf_buff[5];
 
 		  metronome_process_rf(&metronome, tempo, master_timestamp);
 	  }
 
-	  // Handle TX
-	  if (transmit_flag) {
-		  transmit_flag = 0;
+	  if (packet_sent) {
+		  MAIN_DBG("Successfully sent data\r\n");
+		  packet_sent = 0;
 	  }
 
     /* USER CODE END WHILE */

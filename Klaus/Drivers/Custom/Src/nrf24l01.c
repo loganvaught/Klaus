@@ -50,7 +50,7 @@ static void nrf24l01_ce_high(nrf24l01_handle_t *device) {
   */
 static nrf24l01_result_t nrf24l01_write(nrf24l01_handle_t *device, uint8_t addr, uint8_t *data, uint16_t size) {
 	uint8_t command = NRF24L01_W_REGISTER | (addr & NRF24L01_W_MASK);
-	uint8_t status; // Status register shifted back when sending command
+	uint8_t status;
 
 	nrf24l01_csn_low(device);
 	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
@@ -77,7 +77,7 @@ static nrf24l01_result_t nrf24l01_write(nrf24l01_handle_t *device, uint8_t addr,
   */
 static nrf24l01_result_t nrf24l01_read(nrf24l01_handle_t *device, uint8_t addr, uint8_t *data, uint16_t size) {
 	uint8_t command = NRF24L01_R_REGISTER | (addr & NRF24L01_R_MASK);
-	uint8_t status; // Status register shifted back when sending command
+	uint8_t status;
 
 	nrf24l01_csn_low(device);
 	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
@@ -105,7 +105,7 @@ static nrf24l01_result_t nrf24l01_w_tx_payload(nrf24l01_handle_t *device, uint8_
 	if (size > NRF24L01_PAYLOAD_WIDTH || size == 0) return NRF24L01_TooBig;
 
 	uint8_t command = NRF24L01_W_TX_PAYLOAD;
-	uint8_t status; // Status register shifted back when sending command
+	uint8_t status;
 
 	nrf24l01_csn_low(device);
 	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
@@ -133,7 +133,7 @@ static nrf24l01_result_t nrf24l01_r_rx_payload(nrf24l01_handle_t *device, uint8_
 	if (size > NRF24L01_PAYLOAD_WIDTH || size == 0) return NRF24L01_TooBig;
 
 	uint8_t command = NRF24L01_R_RX_PAYLOAD;
-	uint8_t status; // Status register shifted back when sending command
+	uint8_t status;
 
 	nrf24l01_csn_low(device);
 	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
@@ -157,7 +157,7 @@ static nrf24l01_result_t nrf24l01_r_rx_payload(nrf24l01_handle_t *device, uint8_
   */
 static nrf24l01_result_t nrf24l01_flush_tx(nrf24l01_handle_t *device) {
 	uint8_t command = NRF24L01_FLUSH_TX;
-	uint8_t status; // Status register shifted back when sending command
+	uint8_t status;
 
 	nrf24l01_csn_low(device);
 	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
@@ -177,7 +177,7 @@ static nrf24l01_result_t nrf24l01_flush_tx(nrf24l01_handle_t *device) {
   */
 static nrf24l01_result_t nrf24l01_flush_rx(nrf24l01_handle_t *device) {
 	uint8_t command = NRF24L01_FLUSH_RX;
-	uint8_t status; // Status register shifted back when sending command
+	uint8_t status;
 
 	nrf24l01_csn_low(device);
 	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
@@ -204,16 +204,8 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 		return result;
 	}
 
-	// Set PWR_UP = 1
-	config_reg |= NRF24L01_PWR_UP_MASK;
-	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
-	if (result != NRF24L01_OK) {
-		return result;
-	}
+	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Must wait for pwr_up to settle (Takes 1.5ms)
 
-	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
-
-	// Set PRIM_RX = 0
 	config_reg &= ~(NRF24L01_PRIM_RX_MASK);
 
 	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
@@ -221,8 +213,17 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 		return result;
 	}
 
-	// Clear the FIFO
+	// Clear FIFO to make sure previous messages don't interfere with transmitting
 	result = nrf24l01_flush_tx(device);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	// Temporary force disable auto-ack
+	// Personal testing showed that auto-ack kept on resetting. I am not sure why. This forces it to off
+	// It might be because I was using a cloned chip: SI24R01
+	uint8_t data = NRF24L01_AUTO_ACK_DISABLE;
+	result = nrf24l01_write(device, NRF24L01_EN_AA, &data, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
@@ -231,7 +232,7 @@ nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device) {
 	nrf24l01_ce_high(device);
 	device->mode = NRF24L01_TX;
 
-	wait_us(device->micro_timer, NRF24L01_TX_TRANSITION_WAIT_US); // Wait for device to settle in mode
+	wait_us(device->micro_timer, NRF24L01_TX_TRANSITION_WAIT_US); // Must wait for device to settle in mode
 
 	return NRF24L01_OK;
 }
@@ -248,7 +249,7 @@ nrf24l01_result_t nrf24l01_transmit(nrf24l01_handle_t *device, uint8_t *data, ui
 	nrf24l01_result_t result;
 	if (device->mode != NRF24L01_TX) return NRF24L01_IncorrectMode;
 
-	// Check if TX FIFO is full
+	// Check if TX FIFO has room for another message
 	uint8_t reg;
 	result = nrf24l01_read(device, NRF24L01_FIFO_STATUS, &reg, 1);
 	if (result != NRF24L01_OK) {
@@ -258,13 +259,12 @@ nrf24l01_result_t nrf24l01_transmit(nrf24l01_handle_t *device, uint8_t *data, ui
 		return NRF24L01_TXFull;
 	}
 
-	// Set TX FIFO with payload
 	result = nrf24l01_w_tx_payload(device, data, size);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
 
-	// Message should be automatically transmitted because in TX mode, CE is high.
+	// Message should transmit because for this driver, in TX mode, CE is high.
 
 	return NRF24L01_OK;
 }
@@ -282,24 +282,23 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device) {
 		return result;
 	}
 
-	// Set PWR_UP = 1
-	config_reg |= NRF24L01_PWR_UP_MASK;
-	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
-	if (result != NRF24L01_OK) {
-		return result;
-	}
-
-	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Wait for pwr_up to settle (Takes 1.5ms)
-
-	// Set PRIM_RX = 1
 	config_reg |= NRF24L01_PRIM_RX_MASK;
 	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
 
-	// Clear the FIFO
+	// Clear FIFO to make sure previous messages don't interfere with receiving
 	result = nrf24l01_flush_rx(device);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	// Temporary force disable auto-ack
+	// Personal testing showed that auto-ack kept on resetting. I am not sure why. This forces it to off
+	// It might be because I was using a cloned chip: SI24R01
+	uint8_t data = NRF24L01_AUTO_ACK_DISABLE;
+	result = nrf24l01_write(device, NRF24L01_EN_AA, &data, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
@@ -307,7 +306,7 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device) {
 	nrf24l01_ce_high(device);
 	device->mode = NRF24L01_RX;
 
-	wait_us(device->micro_timer, NRF24L01_RX_TRANSITION_WAIT_US); // Wait for device to settle in mode
+	wait_us(device->micro_timer, NRF24L01_RX_TRANSITION_WAIT_US); // Must wait for device to settle in mode
 
 	return NRF24L01_OK;
 }
@@ -319,7 +318,6 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device) {
   * @retval The nrf24l01_result indicating success or error
   */
 nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
-	// Read the status register by sending a NOP command.
 	nrf24l01_result_t result;
 	uint8_t status;
 	uint8_t command = NRF24L01_NOP;
@@ -330,30 +328,26 @@ nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
 	}
 	nrf24l01_csn_high(device);
 
-	// Check for interrupt RX_DR (Data Received)
+	// Data received
 	if (status & NRF24L01_RX_DR) {
-		// Receive the data
 		uint8_t data[NRF24L01_PAYLOAD_WIDTH];
 		result = nrf24l01_r_rx_payload(device, data, NRF24L01_PAYLOAD_WIDTH);
 		if (result != NRF24L01_OK) {
 			return result;
 		}
 
-		// use handle callback
 		if (device->rx_callback) {
 			device->rx_callback(data, NRF24L01_PAYLOAD_WIDTH);
 		}
 	}
-	// TX_DS
+	// Successful transmit
 	if (status & NRF24L01_TX_DS) {
-		// use handle callback
 		if (device->tx_callback) {
 			device->tx_callback();
 		}
 	}
 	// In future: MAX_RT will need to be checked if auto-ack is enabled. This driver does not use auto-ack
 
-	// Clear interrupts
 	uint8_t clear = NRF24L01_RX_DR | NRF24L01_TX_DS | NRF24L01_MAX_RT;
 	result = nrf24l01_write(device, NRF24L01_STATUS, &clear, 1);
 	if (result != NRF24L01_OK) {
@@ -368,24 +362,10 @@ nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device) {
   * @param  device The nrf24l01_handle to operate on
   * @retval The nrf24l01_result indicating success or error
   */
-nrf24l01_result_t nrf24l01_enter_off(nrf24l01_handle_t *device) {
+nrf24l01_result_t nrf24l01_enter_standby(nrf24l01_handle_t *device) {
 	nrf24l01_ce_low(device);
 
-	uint8_t config_reg;
-	nrf24l01_result_t result = nrf24l01_read(device, NRF24L01_CONFIG, &config_reg, 1);
-	if (result != NRF24L01_OK) {
-		return result;
-	}
-
-	// Set PWR_UP = 0
-	config_reg &= ~(NRF24L01_PWR_UP_MASK);
-
-	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
-	if (result != NRF24L01_OK) {
-		return result;
-	}
-
-	device->mode = NRF24L01_Off;
+	device->mode = NRF24L01_Standby;
 
 	return NRF24L01_OK;
 }
@@ -412,18 +392,14 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	if (device == NULL) return NRF24L01_NoDevice;
 	if (micro_timer == NULL) return NRF24L01_NoDevice;
 	if (channel > 125) return NRF24L01_InvalidChannel;
-	// Setup handle
 	device->spi = spi;
 	device->CS_Port = CS_Port;
 	device->CS_Pin = CS_Pin;
 	device->CE_Port = CE_Port;
 	device->CE_Pin = CE_Pin;
 	device->micro_timer = micro_timer;
-	device->mode = NRF24L01_Off;
-	device->rx_callback = NULL;
-	device->tx_callback = NULL;
-
-	// Configure registers for basic usage (Disable auto ack, no retransmits, pipes, addresses)
+	device->rx_callback = NULL; // To be set by main.c
+	device->tx_callback = NULL; // To be set by main.c
 	nrf24l01_result_t result;
 
 	// Disable auto-ack
@@ -442,27 +418,26 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 	}
 
 	// Set address width (SETUP_AW)
-	data = NRF24L01_ADDRESS_WIDTH_VALUE; // Set width of address
+	data = NRF24L01_ADDRESS_WIDTH_VALUE;
 	result = nrf24l01_write(device, NRF24L01_SETUP_AW, &data, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
 
 	// Disable automatic retransmit (SETUP_RETR)
-	data = NRF24L01_AUTO_RETR_DISABLE; // Disable automatic retransmits
+	data = NRF24L01_AUTO_RETR_DISABLE;
 	result = nrf24l01_write(device, NRF24L01_SETUP_RETR, &data, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
 
 	// Set the channel (RF_CH)
-	data = channel & NRF24L01_CHANNEL_MASK; // Set RF channel (0-125)
+	data = channel & NRF24L01_CHANNEL_MASK;
 	result = nrf24l01_write(device, NRF24L01_RF_CH, &data, 1);
 	if (result != NRF24L01_OK) {
 		return result;
 	}
 
-	// RF Setup (RF_SETUP)
 	// Setup data rate
 	result = nrf24l01_read(device, NRF24L01_RF_SETUP, &data, 1);
 	if (result != NRF24L01_OK) {
@@ -499,10 +474,7 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 		return result;
 	}
 
-	// Housekeeping.
-
-	// Make sure is in off mode
-	nrf24l01_enter_off(device);
+	// Housekeeping to make sure driver runs smoothly
 
 	// Clear interrupts
 	uint8_t clear = NRF24L01_RX_DR | NRF24L01_TX_DS | NRF24L01_MAX_RT;
@@ -521,73 +493,22 @@ nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *sp
 		return result;
 	}
 
-	// Configuration is now in NRF24L01_Unknown, and power / prim_rx are automatically set in enter_rx and enter_tx functions
+	// Set PWR_UP = 1
+	uint8_t config_reg;
+	result = nrf24l01_read(device, NRF24L01_CONFIG, &config_reg, 1);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	config_reg |= NRF24L01_PWR_UP_MASK;
+	result = nrf24l01_write(device, NRF24L01_CONFIG, &config_reg, 1);
+	if (result != NRF24L01_OK) {
+		return result;
+	}
+
+	wait_us(device->micro_timer, NRF24L01_PWR_UP_WAIT_US); // Need to wait for pwr_up to settle (Takes 1.5ms)
+
+	nrf24l01_enter_standby(device);
 
 	return NRF24L01_OK;
 }
-
-/* Debugging
-void nrf24l01_print_status(nrf24l01_handle_t *device) {
-	uint8_t status;
-	uint8_t command = NRF24L01_NOP;
-	nrf24l01_csn_low(device);
-	if (HAL_SPI_TransmitReceive(device->spi, &command, &status, 1, HAL_MAX_DELAY) != HAL_OK) {
-		nrf24l01_csn_high(device);
-		printf("STATUS register: Failure to print");
-		return;
-	}
-	nrf24l01_csn_high(device);
-	printf("STATUS register: %02X\r\n", status);
-}
-void nrf24l01_print_config(nrf24l01_handle_t *device) {
-	uint8_t config_reg;
-	nrf24l01_read(device, NRF24L01_CONFIG, &config_reg, 1);
-	printf("CONFIG register: %02X\r\n", config_reg);
-}
-
-void nrf24l01_debug_print_all_important_regs(nrf24l01_handle_t *device) {
-	nrf24l01_print_config(device);
-	nrf24l01_print_status(device);
-
-	uint8_t reg;
-	nrf24l01_read(device, NRF24L01_EN_AA, &reg, 1);
-	printf("EN_AA register: %02X\r\n", reg);
-
-	nrf24l01_read(device, NRF24L01_EN_RXADDR, &reg, 1);
-	printf("EN_RXADDR register: %02X\r\n", reg);
-
-	nrf24l01_read(device, NRF24L01_SETUP_AW, &reg, 1);
-	printf("SETUP_AW register: %02X\r\n", reg);
-
-	nrf24l01_read(device, NRF24L01_SETUP_RETR, &reg, 1);
-	printf("SETUP_RETR register: %02X\r\n", reg);
-
-	nrf24l01_read(device, NRF24L01_RF_CH, &reg, 1);
-	printf("RF_CH register: %02X\r\n", reg);
-
-	nrf24l01_read(device, NRF24L01_RF_SETUP, &reg, 1);
-	printf("RF_SETUP register: %02X\r\n", reg);
-
-	printf("RX_ADDR_P0 (%u bytes): ", 5);
-	uint8_t data[5];
-	nrf24l01_read(device, NRF24L01_RX_ADDR_P0, data, 5);
-	for (int i = 0; i < 5; i++) {
-		printf("%02X ", data[i]);
-	}
-	printf("\r\n");
-
-
-	printf("TX_ADDR (%u bytes): ", 5);
-	nrf24l01_read(device, NRF24L01_TX_ADDR, data, 5);
-	for (int i = 0; i < 5; i++) {
-		printf("%02X ", data[i]);
-	}
-	printf("\r\n");
-
-	nrf24l01_read(device, NRF24L01_RX_PW_P0, &reg, 1);
-	printf("RX PAYLOAD WIDTH: %02X\r\n", reg);
-
-	nrf24l01_read(device, NRF24L01_FIFO_STATUS, &reg, 1);
-	printf("FIFO_STATUS register: %02X\r\n", reg);
-
-}*/

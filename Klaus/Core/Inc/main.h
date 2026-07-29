@@ -92,6 +92,13 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+#ifdef DEBUG
+#include <stdio.h>
+#define MAIN_DBG(...) printf(__VA_ARGS__)
+#else
+#define MAIN_DBG(...)
+#endif
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

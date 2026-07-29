@@ -10,7 +10,6 @@
 
 #include "main.h"
 #include "micro_delay.h"
-// #include <stdio.h>
 
 // Register Addresses
 
@@ -64,10 +63,10 @@
 #define NRF24L01_CE_PIN_WAIT_US 15 // CE must be pulsed high for at least 10 microseconds to register as high
 #define NRF24L01_TRANSMIT_MAX_WAIT_CYCLES 100 // How many wait cycles to poll the TX_DS for successful transmission
 #define NRF24L01_TRANSMIT_WAIT_US 10 // How many microseconds to wait per cycle
-#define NRF24L01_RX_TRANSITION_WAIT_US 150
-#define NRF24L01_TX_TRANSITION_WAIT_US 150
+#define NRF24L01_RX_TRANSITION_WAIT_US 150 // Transition modes takes 150 microseconds
+#define NRF24L01_TX_TRANSITION_WAIT_US 150 // Transition modes takes 150 microseconds
 
-// Handlers
+// Handles / enums
 typedef enum {
 	NRF24L01_OK,
 	NRF24L01_Error,
@@ -83,7 +82,7 @@ typedef enum {
 typedef enum {
 	NRF24L01_TX,
 	NRF24L01_RX,
-	NRF24L01_Off,
+	NRF24L01_Standby,
 } nrf24l01_mode_t;
 
 typedef struct {
@@ -95,8 +94,8 @@ typedef struct {
 	uint8_t last_status;
 	nrf24l01_mode_t mode;
 	micro_delay_handle_t *micro_timer;
-	void (*rx_callback)(uint8_t *data, uint16_t length); // Get received data in RX mode
-	void (*tx_callback)(); // May be useful for debugging successful transmits during TX mode
+	void (*rx_callback)(uint8_t *data, uint16_t length); // Callback for receiving
+	void (*tx_callback)(); // Callback for successful transmit
 } nrf24l01_handle_t;
 
 typedef enum {
@@ -117,11 +116,7 @@ nrf24l01_result_t nrf24l01_enter_rx(nrf24l01_handle_t *device);
 nrf24l01_result_t nrf24l01_enter_tx(nrf24l01_handle_t *device);
 nrf24l01_result_t nrf24l01_transmit(nrf24l01_handle_t *device, uint8_t *data, uint16_t size);
 nrf24l01_result_t nrf24l01_handle_irqs(nrf24l01_handle_t *device);
-nrf24l01_result_t nrf24l01_enter_off(nrf24l01_handle_t *device);
+nrf24l01_result_t nrf24l01_enter_standby(nrf24l01_handle_t *device);
 nrf24l01_result_t nrf24l01_init(nrf24l01_handle_t *device, SPI_HandleTypeDef *spi, micro_delay_handle_t *micro_timer, GPIO_TypeDef *CS_Port, uint16_t CS_Pin, GPIO_TypeDef *CE_Port, uint16_t CE_Pin, uint8_t channel, nrf24l01_datarate_t data_rate, nrf24l01_power_t power, uint8_t *pipe_address);
-/*void nrf24l01_print_status(nrf24l01_handle_t *device);
-void nrf24l01_print_config(nrf24l01_handle_t *device);
-void nrf24l01_debug_print_all_important_regs(nrf24l01_handle_t *device);
-*/
 
 #endif /* NRF24L01_H */

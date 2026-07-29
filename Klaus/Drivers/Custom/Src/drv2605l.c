@@ -41,7 +41,6 @@ drv2605l_result_t drv2605l_read_byte(drv2605l_handle_t *device, uint8_t mAddr, u
   * @retval Either DRV2605L_OK or DRV2605L_Error
   */
 drv2605l_result_t drv2605l_autoconfig(drv2605l_handle_t *device) {
-	// N_ERM_LRA Set 7th bit for LRA
 	uint8_t data = 0;
 	if (drv2605l_read_byte(device, DRV2605L_FEEDBACK_CONTROL, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
@@ -51,35 +50,22 @@ drv2605l_result_t drv2605l_autoconfig(drv2605l_handle_t *device) {
 		return DRV2605L_Error;
 	}
 
-	// FB_BRAKE_FACTOR[2:0] - 0x1A[6:4].
-	// LOOP_GAIN[1:0] - 0x1A[3:2]
-	// RATED_VOLTAGE[7:0] - 0x16[7:0]. SET TO 0x56 FOR 2.0VRms (See formula on DRV datasheet)
 	if (drv2605l_write_byte(device, DRV2605L_RATED_VOLTAGE, DRV2605L_RATED_VOLTAGE_VALUE) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
 
-	// OD_CLAMP[7:0] - 0x17[7:0]. SET TO 0x84 FOR 2.8V clamp. (See formula on DRV datasheet)
 	if (drv2605l_write_byte(device, DRV2605L_OD_CLAMP, DRV2605L_OD_CLAMP_VALUE) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
 
-	// AUTO_CAL_TIME[1:0] - 0x1E[5:4]
-	// DRIVE_TIME[4:0] - 0x1B[4:0]. SET TO 0x1C FOR 150Hz
 	if (drv2605l_read_byte(device, DRV2605L_CONTROL1, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
-	data = data & ~(0b11111); // Remove bits 4:0
+	data = data & ~(0b11111);
 	data = data | DRV2605L_DRIVE_TIME_VALUE;
 	if (drv2605l_write_byte(device, DRV2605L_CONTROL1, data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
-
-	// SAMPLE_TIME[1:0] - 0x1C[5:4]
-	// BLANKING_TIME[3:2] - 0x1F[3:2]
-	// BLANKING_TIME[1:0] - 0x1C[3:2]
-	// IDISS_TIME[3:2] - 0x1F[1:0]
-	// IDISS_TIME[1:0] - 0x1C[1:0]
-	// ZC_DET_TIME[1:0] - 0x1E[7:6]
 
 	return DRV2605L_OK;
 }
@@ -91,14 +77,13 @@ drv2605l_result_t drv2605l_autoconfig(drv2605l_handle_t *device) {
   * @retval Either DRV2605L_OK or DRV2605L_Error
   */
 drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
-	// Set configuration mode (Bits 2:0 set to 0x7), remove from standby (Bit 6 set to 0)
 	uint8_t data = 0;
 	if (drv2605l_read_byte(device, DRV2605L_MODE, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
-	data = data & ~(0b111); // Remove bits 2:0 (Mode field)
-	data = data | DRV2605L_AUTO_CALIBRATION_MODE; // Set for auto calibration mode
-	data = data & ~(1 << 6); // Remove from standby
+	data = data & ~(0b111);
+	data = data | DRV2605L_AUTO_CALIBRATION_MODE;
+	data = data & ~(1 << 6);
 	if (drv2605l_write_byte(device, DRV2605L_MODE, data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
@@ -108,7 +93,7 @@ drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
 		return DRV2605L_Error;
 	}
 
-	// Begin Auto-Calibration. Set GO bit
+	// Set the go bit in order to trigger auto-calibration
 	if (drv2605l_read_byte(device, DRV2605L_GO, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
@@ -116,7 +101,7 @@ drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
 		return DRV2605L_Error;
 	}
 
-	// Poll the go-bit to detect when calibration is completed
+	// Need to poll go bit in order to detect calibration completion
 	uint8_t finished = 0;
 	uint8_t checks = 0;
 	while (finished == 0 && checks < DRV2605L_MAX_WAIT_CALIBRATE_CYCLES){
@@ -135,7 +120,7 @@ drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
 		return DRV2605L_Error;
 	}
 	uint8_t result = (data & (1 << 3));
-	if (result) return DRV2605L_Error; // DIAG_RESULT = 1 == Failure
+	if (result) return DRV2605L_Error;
 
 	return DRV2605L_OK;
 }
@@ -148,18 +133,16 @@ drv2605l_result_t drv2605l_calibrate(drv2605l_handle_t *device) {
   * @retval Either DRV2605L_OK or DRV2605L_Error
   */
 drv2605l_result_t drv2605l_init(drv2605l_handle_t *device, I2C_HandleTypeDef *i2c) {
-	// set the i2c of the drv2605l_handle_t
 	device->i2c = i2c;
 
-	// Wait for DRV2605L to be ready
+	// DRV2605L requires a certain amount of time to wait for being "ready"
 	HAL_Delay(DRV2605L_WAIT_TIME_READY_MS);
 
-	// Calibrate
 	if (drv2605l_calibrate(device) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
 
-	// Remove calibration mode (set bits 2:0 to 0 for internal trigger mode).
+	// Must exit calibration mode
 	uint8_t data = 0;
 	if (drv2605l_read_byte(device, DRV2605L_MODE, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
@@ -169,22 +152,20 @@ drv2605l_result_t drv2605l_init(drv2605l_handle_t *device, I2C_HandleTypeDef *i2
 		return DRV2605L_Error;
 	}
 
-	// Library selection. LRA = Library No. 6
 	if (drv2605l_read_byte(device, DRV2605L_LIBRARY_SELECTION, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
-	data = data & ~(0b111); // Clear library field (bits 2:0)
+	data = data & ~(0b111);
 	data = data | DRV2605L_LIBRARY_SELECTION_VALUE;
 	if (drv2605l_write_byte(device, DRV2605L_LIBRARY_SELECTION, data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
 
-	// Set up for vibration
 	if (drv2605l_read_byte(device, DRV2605L_MODE, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
-	data = data & ~(0b111); // Clear MODE field
-	data = data | 0; // Select "Internal Trigger"
+	data = data & ~(0b111);
+	data = data | 0;
 	if (drv2605l_write_byte(device, DRV2605L_MODE, data) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
@@ -203,7 +184,7 @@ drv2605l_result_t drv2605l_init(drv2605l_handle_t *device, I2C_HandleTypeDef *i2
 drv2605l_result_t drv2605l_play(drv2605l_handle_t *device, uint8_t num) {
 	if (num < DRV2605L_WAVEFORM_SELECT_MIN || num > DRV2605L_WAVEFORM_SELECT_MAX) return DRV2605L_Error; // Invalid waveform
 
-	// Check if go bit is 0
+	// Must check that DRV2605L is not currently busy
 	uint8_t data = 0;
 	if (drv2605l_read_byte(device, DRV2605L_GO, &data) != DRV2605L_OK) {
 		return DRV2605L_Error;
@@ -214,7 +195,6 @@ drv2605l_result_t drv2605l_play(drv2605l_handle_t *device, uint8_t num) {
 		return DRV2605L_Error;
 	}
 
-	// Set GO bit
 	if (drv2605l_write_byte(device, DRV2605L_GO, data | 1 << 0) != DRV2605L_OK) {
 		return DRV2605L_Error;
 	}
