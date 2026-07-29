@@ -8,12 +8,12 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 - Wireless syncing with multiple devices
 - Battery powered, rechargeable
 ## Project Layout
-Klaus (Repo)
-- Klaus (Container folder)
-  - Drivers
-    - Custom: Header and source files for NRF24L01+, DRV2605L, and metronome code
-  - Core
-    - Src: Main.c here
+- Klaus (Repo)
+  - Klaus (Container folder)
+    - Drivers
+      - Custom: Header and source files for NRF24L01+, DRV2605L, and metronome code
+    - Core
+      - Src: Main.c here
 ## Parts
 - STM32F411CEU6 Blackpill Board
 - 18650 Battery (With protection circuit)
