@@ -17,7 +17,6 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
       - Src: Main.c here
   - Media: Images and videos of project
 ## Parts
-![Devices with Open Enclosures](Media/Images/lid_open.png)
 - STM32F411CEU6 Blackpill Board
 - 18650 Battery (With protection circuit)
 - TP4056 Charging Board
@@ -26,6 +25,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 - DRV2605L Haptic Board
 - ELV1411A LRA
 - NRF24L01+ (With PA and LNA)
+![Devices with Open Enclosures](Media/Images/lid_open.png)
 ## How to Make
 - Clone the repo, and open the Klaus container folder (inside this repo) in STM32CubeIDE
 - Use an ST-Link (or other method) to flash the STM32F411CEU6
@@ -33,7 +33,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 - View block diagram below for help putting device together. (Note: diagram does not show rotary encoder or mode-switching button)
 - Supply 5v to the STM32 5v pin, and the DRV2605L haptic board. Supply 3.3v to the NRF24L01+ board; or, use an NRF24L01 adapter board, which takes 5V. 
 
-# Design and Functionality
+# Design
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
 ![System Block Diagram](Media/Images/block_diagram.png)
 ## Peripherals / Functionality
