@@ -25,6 +25,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 - DRV2605L Haptic Board
 - ELV1411A LRA
 - NRF24L01+ (With PA and LNA)
+
 ![Devices with Open Enclosures](Media/Images/lid_open.png)
 ## How to Make
 - Clone the repo, and open the Klaus container folder (inside this repo) in STM32CubeIDE
