@@ -1,3 +1,5 @@
+![Devices in Enclosures](Media/Images/front.png)
+![Devices with Open Enclosures](Media/Images/lid_open.png)
 # Klaus
 Wireless, wearable, vibration-based metronome to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
 ## Purpose / Background Info
@@ -14,6 +16,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
       - Custom: Header and source files for NRF24L01+, DRV2605L, and metronome code
     - Core
       - Src: Main.c here
+  - Media: Images and videos of project
 ## Parts
 - STM32F411CEU6 Blackpill Board
 - 18650 Battery (With protection circuit)
@@ -32,7 +35,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 
 # Design and Functionality
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
-![System Block Diagram](docs/block_diagram.png)
+![System Block Diagram](Media/Images/block_diagram.png)
 ## Peripherals / Functionality
 - I2C: DRV2605L
 - SPI: NRF24L01+
