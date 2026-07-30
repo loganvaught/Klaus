@@ -1,5 +1,4 @@
 ![Devices in Enclosures](Media/Images/front.png)
-![Devices with Open Enclosures](Media/Images/lid_open.png)
 # Klaus
 Wireless, wearable, vibration-based metronome to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
 ## Purpose / Background Info
@@ -18,6 +17,7 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
       - Src: Main.c here
   - Media: Images and videos of project
 ## Parts
+![Devices with Open Enclosures](Media/Images/lid_open.png)
 - STM32F411CEU6 Blackpill Board
 - 18650 Battery (With protection circuit)
 - TP4056 Charging Board
