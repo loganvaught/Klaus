@@ -23,13 +23,9 @@ The code that I wrote can be found in these locations:
 Klaus/ (Project container folder)
 
 ├── Core/
-
-│    └── Src/      # main.c
-
+    └── Src/      # main.c
 ├── Drivers/
-
-│    └── Custom/   # NRF24L01+, DRV2605L, metronome logic
-
+    └── Custom/   # NRF24L01+, DRV2605L, metronome logic
 └── Klaus.ioc      # Pin mapping in STM32CubeMX
 ## Parts
 - STM32F411CEU6 Blackpill Board
