@@ -6,7 +6,7 @@ Klaus is a wireless, vibration-based metronome designed for ensembles that strug
 - Linear resonant actuator (LRA) for strong click sensations
 - Adjustable tempo via rotary encoder
 - Wireless syncing with multiple devices using custom RF protocol
-- Rechargeable li-ion battery with informal testing of 24+ hour battery runtime
+- Rechargeable li-ion battery with 24+ hour battery runtime during informal testing
 
 <img width="1986" height="1238" alt="Devices in Enclosures" src="https://github.com/user-attachments/assets/71dc42b9-95c3-4f01-a95e-4a1ca438d470" />
 <img width="2160" height="1651" alt="Devices with Open Enclosures" src="https://github.com/user-attachments/assets/c162a972-fed2-42db-9dc0-27c0166d2794" />
