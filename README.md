@@ -16,9 +16,6 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - Very useful for large ensembles / rehearsals with rhythmically complex pieces
 - Vibrations are difficult to feel with the ELV1411A, a stronger LRA will be needed in future versions
 - Greatly improves ensemble comfort with long periods of silence
-
-<video src="https://github.com/user-attachments/assets/50d66d34-7052-4124-8466-a2ae3fe2bc2e" controls width="100%"></video>
-
 ## Project Layout
 - Klaus (Repo)
   - Klaus (Container folder)
