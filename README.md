@@ -1,4 +1,5 @@
 <video src="https://github.com/user-attachments/assets/65eb8524-2594-48ac-9710-71b7d11167b9" controls width="100%"></video>
+
 # Klaus
 Wireless vibration-based metronome to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
 Designed for ensembles that struggle with hearing metronomes in loud environments/rehearsals.
@@ -17,6 +18,7 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - Greatly improves ensemble comfort with long periods of silence
 
 <video src="https://github.com/user-attachments/assets/50d66d34-7052-4124-8466-a2ae3fe2bc2e" controls width="100%"></video>
+
 ## Project Layout
 - Klaus (Repo)
   - Klaus (Container folder)
@@ -37,9 +39,11 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - NRF24L01+ (With PA and LNA)
 
 <img width="2160" height="1651" alt="Devices with Open Enclosures" src="https://github.com/user-attachments/assets/c162a972-fed2-42db-9dc0-27c0166d2794" />
+
 # Design
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
 <img width="626" height="379" alt="System Block Diagram" src="https://github.com/user-attachments/assets/abc06887-0561-4997-bbaa-62e27158d7ce" />
+
 ## Peripherals / Functionality
 - I2C: DRV2605L
 - SPI: NRF24L01+
