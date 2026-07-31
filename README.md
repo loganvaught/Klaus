@@ -32,7 +32,6 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - 18650 Battery (With protection circuit)
 - TP4056 Charging Board
 - 5V Boost Converter
-
 - AP2112K-3.3 LDO (or, use a NRF24L01 adapter board. Takes 5V)
 - DRV2605L Haptic Board
 - ELV1411A LRA
@@ -42,6 +41,7 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 
 # Design
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
+
 <img width="626" height="379" alt="System Block Diagram" src="https://github.com/user-attachments/assets/abc06887-0561-4997-bbaa-62e27158d7ce" />
 
 ## Peripherals / Functionality
