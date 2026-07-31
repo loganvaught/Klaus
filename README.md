@@ -1,4 +1,4 @@
-https://github.com/user-attachments/assets/120b6ba2-ba9d-4f11-bd2d-1b2a7621c1e6
+<video src="https://github.com/user-attachments/assets/65eb8524-2594-48ac-9710-71b7d11167b9" controls width="100%"></video>
 # Klaus
 Wireless vibration-based metronome to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
 Designed for ensembles that struggle with hearing metronomes in loud environments/rehearsals.
@@ -15,7 +15,7 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - Very useful for large ensembles / rehearsals with rhythmically complex pieces
 - Vibrations are difficult to feel with the ELV1411A, a stronger LRA will be needed in future versions
 - Greatly improves ensemble comfort with long periods of silence
-https://github.com/user-attachments/assets/15a65cbe-1ba1-40c7-a49e-66bd2edcd2b0
+<video src="https://github.com/user-attachments/assets/50d66d34-7052-4124-8466-a2ae3fe2bc2e" controls width="100%"></video>
 ## Project Layout
 - Klaus (Repo)
   - Klaus (Container folder)
