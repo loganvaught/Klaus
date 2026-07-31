@@ -15,6 +15,7 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - Very useful for large ensembles / rehearsals with rhythmically complex pieces
 - Vibrations are difficult to feel with the ELV1411A, a stronger LRA will be needed in future versions
 - Greatly improves ensemble comfort with long periods of silence
+
 <video src="https://github.com/user-attachments/assets/50d66d34-7052-4124-8466-a2ae3fe2bc2e" controls width="100%"></video>
 ## Project Layout
 - Klaus (Repo)
@@ -36,7 +37,6 @@ Designed for ensembles that struggle with hearing metronomes in loud environment
 - NRF24L01+ (With PA and LNA)
 
 <img width="2160" height="1651" alt="Devices with Open Enclosures" src="https://github.com/user-attachments/assets/c162a972-fed2-42db-9dc0-27c0166d2794" />
-
 # Design
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
 <img width="626" height="379" alt="System Block Diagram" src="https://github.com/user-attachments/assets/abc06887-0561-4997-bbaa-62e27158d7ce" />
