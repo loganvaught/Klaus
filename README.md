@@ -1,13 +1,21 @@
-![Devices in Enclosures](Media/Images/front.png)
+https://github.com/user-attachments/assets/120b6ba2-ba9d-4f11-bd2d-1b2a7621c1e6
 # Klaus
-Wireless, wearable, vibration-based metronome to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
-## Purpose / Background Info
-I designed Klaus for my string quartet because we had trouble hearing the metronome. Metronomes are too quiet while playing. Klaus helped my quartet practice many pieces, and I hope it helps others too!
+Wireless vibration-based metronome to help musicians stay in sync. Built with STM32CubeIDE and STM32CubeMX 
+Designed for ensembles that struggle with hearing metronomes in loud environments/rehearsals.
 ## Features
 - Linear resonant actuator for strong click sensations
 - Adjustable tempo via rotary encoder
 - Wireless syncing with multiple devices
 - Battery powered, rechargeable
+
+<img width="1986" height="1238" alt="Devices in Enclosures" src="https://github.com/user-attachments/assets/71dc42b9-95c3-4f01-a95e-4a1ca438d470" />
+
+## Results and Feedback
+- Tested with real ensembles to help guide the engineering process
+- Very useful for large ensembles / rehearsals with rhythmically complex pieces
+- Vibrations are difficult to feel with the ELV1411A, a stronger LRA will be needed in future versions
+- Greatly improves ensemble comfort with long periods of silence
+https://github.com/user-attachments/assets/15a65cbe-1ba1-40c7-a49e-66bd2edcd2b0
 ## Project Layout
 - Klaus (Repo)
   - Klaus (Container folder)
@@ -21,22 +29,17 @@ I designed Klaus for my string quartet because we had trouble hearing the metron
 - 18650 Battery (With protection circuit)
 - TP4056 Charging Board
 - 5V Boost Converter
+
 - AP2112K-3.3 LDO (or, use a NRF24L01 adapter board. Takes 5V)
 - DRV2605L Haptic Board
 - ELV1411A LRA
 - NRF24L01+ (With PA and LNA)
 
-![Devices with Open Enclosures](Media/Images/lid_open.png)
-## How to Make
-- Clone the repo, and open the Klaus container folder (inside this repo) in STM32CubeIDE
-- Use an ST-Link (or other method) to flash the STM32F411CEU6
-- View pin mapping by opening .ioc file in STM32CubeMX
-- View block diagram below for help putting device together. (Note: diagram does not show rotary encoder or mode-switching button)
-- Supply 5v to the STM32 5v pin, and the DRV2605L haptic board. Supply 3.3v to the NRF24L01+ board; or, use an NRF24L01 adapter board, which takes 5V. 
+<img width="2160" height="1651" alt="Devices with Open Enclosures" src="https://github.com/user-attachments/assets/c162a972-fed2-42db-9dc0-27c0166d2794" />
 
 # Design
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes useage of 3.3V LDO and no NRF adapter board
-![System Block Diagram](Media/Images/block_diagram.png)
+<img width="626" height="379" alt="System Block Diagram" src="https://github.com/user-attachments/assets/abc06887-0561-4997-bbaa-62e27158d7ce" />
 ## Peripherals / Functionality
 - I2C: DRV2605L
 - SPI: NRF24L01+
@@ -50,3 +53,9 @@ Note: Block diagram does not show the rotary encoder or the button for mode swit
 - RF uses only one pipe, because only one is needed for this project
 - DRV2605L driver specifically designed for setup with ELV1411A. Tradeoff for simplicity under time constraints
 - AP2112K-3.3: Has a high max current for supplying the PA + LNA demands of of the NRF. Alternatively, an adapter board is much simpler to use.
+## How to Make
+- Clone the repo, and open the Klaus container folder (inside this repo) in STM32CubeIDE
+- Use an ST-Link (or other method) to flash the STM32F411CEU6
+- View pin mapping by opening .ioc file in STM32CubeMX
+- View block diagram below for help putting device together. (Note: diagram does not show rotary encoder or mode-switching button)
+- Supply 5v to the STM32 5v pin, and the DRV2605L haptic board. Supply 3.3v to the NRF24L01+ board; or, use an NRF24L01 adapter board, which takes 5V. 
