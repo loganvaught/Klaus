@@ -9,6 +9,7 @@ Klaus is a wireless, vibration-based metronome designed for ensembles that strug
 - Rechargeable li-ion battery with informal testing of 24+ hour battery runtime
 
 <img width="1986" height="1238" alt="Devices in Enclosures" src="https://github.com/user-attachments/assets/71dc42b9-95c3-4f01-a95e-4a1ca438d470" />
+<img width="2160" height="1651" alt="Devices with Open Enclosures" src="https://github.com/user-attachments/assets/c162a972-fed2-42db-9dc0-27c0166d2794" />
 
 ## Results and Feedback
 - Tested with real ensembles to help guide the engineering process
@@ -36,8 +37,6 @@ Klaus/ (Project container folder)
 - DRV2605L Haptic Board
 - ELV1411A LRA
 - NRF24L01+ (With PA and LNA)
-
-<img width="2160" height="1651" alt="Devices with Open Enclosures" src="https://github.com/user-attachments/assets/c162a972-fed2-42db-9dc0-27c0166d2794" />
 
 # Design
 Note: Block diagram does not show the rotary encoder or the button for mode switching. Assumes usage of 3.3V LDO and no NRF adapter board
