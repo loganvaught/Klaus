@@ -19,14 +19,14 @@ Klaus is a wireless, vibration-based metronome designed for ensembles that strug
 ## Repo Organization
 STM32CubeMX generates a lot of required files found in this repo.
 The code that I wrote can be found in these locations:
-
+```
 Klaus/ (Project container folder)
-
-├── Core/
-    └── Src/      # main.c
-├── Drivers/
-    └── Custom/   # NRF24L01+, DRV2605L, metronome logic
-└── Klaus.ioc      # Pin mapping in STM32CubeMX
+└── Core/
+      └── Src/      # main.c
+└── Drivers/
+      └── Custom/   # NRF24L01+, DRV2605L, metronome logic
+└── Klaus.ioc       # Pin mapping in STM32CubeMX
+```
 ## Parts
 - STM32F411CEU6 Blackpill Board
 - 18650 Battery (With protection circuit)
