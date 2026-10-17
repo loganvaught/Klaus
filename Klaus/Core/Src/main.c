@@ -287,11 +287,11 @@ int main(void)
 	  //---------------------------- nRF24L01+ CODE ------------------------------//
 
 	  if (nrf_irq_pending) {
+		  nrf_irq_pending = 0;
 		  nrf24l01_result = nrf24l01_handle_irqs(&rf_handle);
 		  if (nrf24l01_result != NRF24L01_OK) {
 			  Error_Handler();
 		  }
-		  nrf_irq_pending = 0;
 	  }
 
 	  if (btn_pressed) {
