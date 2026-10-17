@@ -90,7 +90,7 @@ int _write(int fd, char* ptr, int len) {
 
 uint8_t encoder_last_state = 0;
 uint8_t encoder_state = 0;
-uint8_t encoder_change = 2;
+volatile uint8_t encoder_change = 2;
 
 // Arrays to differentiate between "noise" and a real, encoder direction
 uint8_t encoder_clockwise_dict[4] = {
@@ -100,8 +100,8 @@ uint8_t encoder_counterclockwise_dict[4] = {
 		1, 3, 0, 2
 };
 
-uint8_t nrf_irq_pending = 0;
-uint8_t btn_pressed = 0;
+volatile uint8_t nrf_irq_pending = 0;
+volatile uint8_t btn_pressed = 0;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == ENCODER_A_Pin || GPIO_Pin == ENCODER_B_Pin) {

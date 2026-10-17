@@ -86,14 +86,14 @@ void metronome_update(metronome_t *device) {
 		device->initialized_timestamps = 1;
 		uint32_t this_timestamp = device->tim->Instance->CNT;
 		uint16_t tempo = device->tempo;
-		uint32_t offset = device->timestamp_offset_from_master;
+		int32_t offset = device->timestamp_offset_from_master;
 		device->pulse_timestamps[0] = this_timestamp + TIMER_TICKS_PER_MINUTE/tempo - offset;
 		device->pulse_timestamps[1] = this_timestamp + 2 * (TIMER_TICKS_PER_MINUTE/tempo) - offset;
 		device->pulse_timestamps[2] = this_timestamp + 3 * (TIMER_TICKS_PER_MINUTE/tempo) - offset;
 		device->pulse_index_on = 0;
 	}
 
-	if (device->tim->Instance->CNT >= device->pulse_timestamps[device->pulse_index_on]) {
+	if ((int32_t) (device->tim->Instance->CNT - device->pulse_timestamps[device->pulse_index_on]) >= 0) {
 		metronome_pulse(device);
 	}
 }
@@ -117,6 +117,7 @@ void metronome_process_rf(metronome_t *device, uint16_t new_tempo, uint32_t mast
 		// Force recalculation of future pulses and snap to master for smoother operation
 		device->initialized_offset = 1;
 		device->initialized_timestamps = 0;
+		device->timestamp_offset_from_master = 0;
 		device->tim->Instance->CNT = master_timestamp;
 	}
 	else {
@@ -132,7 +133,7 @@ void metronome_process_rf(metronome_t *device, uint16_t new_tempo, uint32_t mast
 /**
   * @brief  Initialize a metronome_t handle with default values to begin generating pulses.
   * @param  device Pointer to the metronome handle
-  * @param  tim The address of the htim to use for generating pulses. Should run at 10 MHz, or adjust TIMER_TICKS_PER_MINUTE
+  * @param  tim The address of the htim to use for generating pulses. Adjust TIMER_TICKS_PER_MINUTE
   * @retval Nothing
   */
 void metronome_init(metronome_t *device, TIM_HandleTypeDef *tim) {
